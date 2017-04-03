@@ -14,7 +14,9 @@ var (
 )
 
 func TestFS(t *testing.T) {
-	site, err := Init(FS, nil)
+	var site *Site
+
+	err := Init(FS, nil, site)
 	if err != nil {
 		t.Errorf("Init() failed, %s", err)
 		t.FailNow()
@@ -64,9 +66,49 @@ func TestFS(t *testing.T) {
 
 func TestS3(t *testing.T) {
 	if testS3 == true {
+		site, err := Init(S3, nil)
+		if err != nil {
+			t.Errorf("%s", err)
+			t.FailNow()
+		}
 
-		t.Errorf("TestS3() not implemented.")
-		t.FailNow()
+		fname := `testdata/helloworld.txt`
+		expected := []byte(`Hello World!!!`)
+		err = site.Create(fname, expected)
+		if err != nil {
+			t.Errorf("%s", err)
+			t.FailNow()
+		}
+		result, err := site.Read(fname)
+		if err != nil {
+			t.Errorf("%s", err)
+			t.FailNow()
+		}
+		if bytes.Compare(expected, result) != 0 {
+			t.Errorf("expected %q, got %q", expected, result)
+			t.FailNow()
+		}
+		expected = []byte(`Hello World.`)
+		err = site.Update(fname, expected)
+		if err != nil {
+			t.Errorf("%s", err)
+			t.FailNow()
+		}
+		// Now read back the data and make sure it changed
+		result, err = site.Read(fname)
+		if err != nil {
+			t.Errorf("%s", err)
+			t.FailNow()
+		}
+		if bytes.Compare(expected, result) != 0 {
+			t.Errorf("expected %q, got %q", expected, result)
+			t.FailNow()
+		}
+		err = site.Delete(fname)
+		if err != nil {
+			t.Errorf("%s", err)
+			t.FailNow()
+		}
 	} else {
 		fmt.Println("Skipping TestS3")
 	}
