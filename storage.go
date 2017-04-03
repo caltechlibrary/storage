@@ -2,17 +2,15 @@ package storage
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 )
 
 const (
-	// S3 indicates the remote storage is AWS S3
+	// FS local file system
+	FS = iota
+	// S3 remote storage is AWS S3 (FIXME: not implemented)
 	S3 = iota
-	// IPFS Indicates the remote storage is IPFS based
-	IPFS = iota
-	// SFTP
-	SFTP = iota
-	// SSH
-	SSH = iota
 )
 
 // Site wrapps the given system interface normalizing to simple Create, Read, Update, Delete operations
@@ -26,6 +24,54 @@ type Site struct {
 	Close  func() error
 }
 
+func FSCreate(fname string, src []byte) error {
+	fp, err := os.Create(fname)
+	if err != nil {
+		return err
+	}
+	defer fp.Close()
+	_, err = fp.Write(src)
+	if err != nil {
+		return fmt.Errorf("%s, %s", fname, err)
+	}
+	return nil
+}
+
+func FSRead(fname string) ([]byte, error) {
+	return ioutil.ReadFile(fname)
+}
+
+func FSUpdate(fname string, src []byte) error {
+	fp, err := os.OpenFile(fname, os.O_RDWR|os.O_TRUNC, 0664)
+	if err != nil {
+		return err
+	}
+	defer fp.Close()
+	_, err = fp.Write(src)
+	if err != nil {
+		return fmt.Errorf("%s, %s", fname, err)
+	}
+	return nil
+}
+
+func FSDelete(fname string) error {
+	return os.Remove(fname)
+}
+
 func Init(storageType int) (*Site, error) {
-	return nil, fmt.Errorf("Init(%d) not implemented", storageType)
+	switch storageType {
+	case FS:
+		return &Site{
+			Config: map[string]interface{}{},
+			Create: FSCreate,
+			Read:   FSRead,
+			Update: FSUpdate,
+			Delete: FSDelete,
+			Close:  func() error { return nil },
+		}, nil
+	case S3:
+		return nil, fmt.Errorf("S3 storageType not implemented")
+	default:
+		return nil, fmt.Errorf("storageType not supported")
+	}
 }
