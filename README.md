@@ -1,6 +1,6 @@
 
 # storage
 
-storage go package wraps various storage options such as local file system and AWS S3 in
-one convient set of CRUD operations.
+This go package wraps storage options used by Caltech Library in standard CRUD operations.
+
 
