@@ -14,7 +14,7 @@ var (
 )
 
 func TestFS(t *testing.T) {
-	site, err := Init(FS)
+	site, err := Init(FS, nil)
 	if err != nil {
 		t.Errorf("Init() failed, %s", err)
 		t.FailNow()

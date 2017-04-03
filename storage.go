@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-
+	"path"
 	// 3rd Party Packages
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-)
+	/*
+		"github.com/aws/aws-sdk-go/aws"
+		"github.com/aws/aws-sdk-go/aws/session"
+		"github.com/aws/aws-sdk-go/service/s3"
+	*/)
 
 const (
 	// FS local file system
@@ -31,6 +32,9 @@ type Site struct {
 
 // FSCreate creates a new file on the file system with a given name from the byte array.
 func FSCreate(fname string, src []byte) error {
+	// FIXME: FSCreate should create the path elements if necessary
+	dname := path.Dir(fname)
+	os.MkdirAll(dname, 0775)
 	fp, err := os.Create(fname)
 	if err != nil {
 		return err
@@ -68,9 +72,9 @@ func FSDelete(fname string) error {
 	return os.Remove(fname)
 }
 
-// S3Init() is a function that initialize an AWS/S3 session
-func S3Init() (*Site, error) {
-	return nil, fmt.Errorf("S3Init() not implemented")
+// S3Init is a function that initialize an AWS/S3 session
+func S3Init(options map[string]interface{}) (*Site, error) {
+	return nil, fmt.Errorf("S3Init(%+v) not implemented", options)
 }
 
 // S3Create takes a relative path and a byte array of content and writes it to the bucket
