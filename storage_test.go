@@ -14,9 +14,8 @@ var (
 )
 
 func TestFS(t *testing.T) {
-	var site *Site
 
-	err := Init(FS, nil, site)
+	site, err := Init(FS, nil)
 	if err != nil {
 		t.Errorf("Init() failed, %s", err)
 		t.FailNow()
@@ -27,7 +26,7 @@ func TestFS(t *testing.T) {
 	os.Mkdir("testdata", 0775)
 	fname := path.Join("testdata", "helloworld.txt")
 	helloworld := []byte(`Hello World!!!!`)
-	err = site.Create(fname, helloworld)
+	err = site.Create(fname, bytes.NewReader(helloworld))
 	if err != nil {
 		t.Errorf("Create error for %s, %s", fname, err)
 		t.FailNow()
@@ -42,7 +41,7 @@ func TestFS(t *testing.T) {
 		t.FailNow()
 	}
 	helloworld = []byte("Hello World.")
-	err = site.Update(fname, helloworld)
+	err = site.Update(fname, bytes.NewReader(helloworld))
 	if err != nil {
 		t.Errorf("Update error for %s, %s", fname, err)
 		t.FailNow()
@@ -74,7 +73,7 @@ func TestS3(t *testing.T) {
 
 		fname := `testdata/helloworld.txt`
 		expected := []byte(`Hello World!!!`)
-		err = site.Create(fname, expected)
+		err = site.Create(fname, bytes.NewReader(expected))
 		if err != nil {
 			t.Errorf("%s", err)
 			t.FailNow()
@@ -89,7 +88,7 @@ func TestS3(t *testing.T) {
 			t.FailNow()
 		}
 		expected = []byte(`Hello World.`)
-		err = site.Update(fname, expected)
+		err = site.Update(fname, bytes.NewReader(expected))
 		if err != nil {
 			t.Errorf("%s", err)
 			t.FailNow()
