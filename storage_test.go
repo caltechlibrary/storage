@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	testS3 bool
+	testS3 string
 )
 
 func TestFS(t *testing.T) {
@@ -64,8 +64,11 @@ func TestFS(t *testing.T) {
 }
 
 func TestS3(t *testing.T) {
-	if testS3 == true {
-		site, err := Init(S3, nil)
+	if testS3 != "" {
+		options := map[string]interface{}{
+			"Profile": testS3,
+		}
+		site, err := Init(S3, options)
 		if err != nil {
 			t.Errorf("%s", err)
 			t.FailNow()
@@ -114,7 +117,7 @@ func TestS3(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	flag.BoolVar(&testS3, "s3", false, "Run S3 storageType tests")
+	flag.StringVar(&testS3, "s3", "", "Run S3 storageType tests using matching profile")
 	flag.Parse()
 	os.Exit(m.Run())
 }

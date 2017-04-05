@@ -108,10 +108,13 @@ func S3Init(options map[string]interface{}) (*Site, error) {
 		cfg["Bucket"] = val
 	}
 
-	sess, err := session.NewSession()
+	sess := session.Must(session.NewSession())
+	c, err := sess.Config.Credentials.Get()
 	if err != nil {
+		fmt.Printf("DEBUG NewSession() failed, %s\n", err)
 		return nil, err
 	}
+	fmt.Printf("DEBUG credential: %+v\n", c)
 	cfg["session"] = sess
 
 	s3Svc := s3.New(sess)
