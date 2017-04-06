@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 
 	// 3rd Party Packages
 	"github.com/aws/aws-sdk-go/aws"
@@ -32,6 +33,62 @@ type Site struct {
 	Update func(string, io.Reader) error
 	Delete func(string) error
 	Close  func() error
+	Stat   func(string) (os.FileInfo, error)
+}
+
+type S3Doc struct {
+	Info map[string]interface{}
+}
+
+func S3ToDocInfo(o *s3.Object) *S3Doc {
+	doc := new(S3Doc)
+	doc.Info = map[string]interface{}{}
+	doc.Info["ETag"] = o.ETag
+	doc.Info["Key"] = o.Key
+	doc.Info["LastModified"] = o.LastModified
+	doc.Info["Owner"] = o.Owner
+	doc.Info["Size"] = o.Size
+	doc.Info["StorageClass"] = o.StorageClass
+	return doc
+}
+
+func (d *S3Doc) Name() string {
+	if val, ok := d.Info["Key"]; ok == true {
+		p := val.(*string)
+		return path.Base(*p)
+	}
+	return ""
+}
+
+func (d *S3Doc) Size() int64 {
+	if val, ok := d.Info["Size"]; ok == true {
+		size := val.(*int64)
+		return *size
+	}
+	return int64(0)
+}
+
+func (d *S3Doc) ModTime() time.Time {
+	if val, ok := d.Info["LastModified"]; ok == true {
+		t := val.(*time.Time)
+		return *t
+	}
+
+	return time.Time{}
+}
+
+func (d *S3Doc) Mode() os.FileMode {
+	//FIXME: Not sure how to map this to the S3 context
+	return os.FileMode(0)
+}
+
+func (d *S3Doc) IsDir() bool {
+	//FIXME: how would we know if the key is a behaving like a directory or a file in S3?
+	return false
+}
+
+func (d *S3Doc) Sys() interface{} {
+	return nil
 }
 
 // FSInit initialize a file system type site
@@ -52,6 +109,9 @@ func FSInit(options map[string]interface{}) (*Site, error) {
 	}
 	s.Close = func() error {
 		return nil
+	}
+	s.Stat = func(fname string) (os.FileInfo, error) {
+		return os.Stat(fname)
 	}
 	return s, nil
 }
@@ -175,7 +235,36 @@ func S3Init(options map[string]interface{}) (*Site, error) {
 	site.Close = func() error {
 		return nil
 	}
+	site.Stat = func(fname string) (os.FileInfo, error) {
+		return S3Stat(site, fname)
+	}
 	return site, nil
+}
+
+// S3Stat takes a file name and returns a FileInfo and error value
+func S3Stat(s *Site, fname string) (os.FileInfo, error) {
+	if val, ok := s.Config["s3Service"]; ok == true {
+		s3Svc := val.(s3iface.S3API)
+		if _, ok := s.Config["AwsBucket"]; ok == false {
+			return nil, fmt.Errorf("Bucket not defined for %s", fname)
+		}
+		bucketName := s.Config["AwsBucket"].(string)
+		statParams := &s3.ListObjectsInput{
+			Bucket:  &bucketName,
+			Prefix:  &fname,
+			MaxKeys: aws.Int64(1),
+		}
+		res, err := s3Svc.ListObjects(statParams)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("DEBUG Stat(%q): (%T) %+v\n", fname, res.Contents[0], res)
+		if len(res.Contents) > 0 {
+			return S3ToDocInfo(res.Contents[0]), nil
+		}
+		return nil, fmt.Errorf("%s not found", fname)
+	}
+	return nil, fmt.Errorf("s3Service object not available")
 }
 
 // Create takes a relative path and a byte array of content and writes it to the bucket
@@ -255,3 +344,6 @@ func Init(storageType int, options map[string]interface{}) (*Site, error) {
 		return nil, fmt.Errorf("storageType not supported")
 	}
 }
+
+// WriteFile - is a drop in replacement for ioutil.WriteFile() using storage's CRUD operations
+// ReadFile - is a drop in replacement for ioutil.ReadFile() using storage's CRUD operations

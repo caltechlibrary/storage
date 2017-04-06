@@ -31,6 +31,21 @@ func TestFS(t *testing.T) {
 		t.Errorf("Create error for %s, %s", fname, err)
 		t.FailNow()
 	}
+
+	// Stat for FS
+	fInfo, err := site.Stat(fname)
+	if err != nil {
+		t.Errorf("Stat error for %s, %s", fname, err)
+		t.FailNow()
+	}
+	if fInfo == nil {
+		t.Errorf("Stat missing fInfo object %ss", fname)
+		t.FailNow()
+	}
+	if fInfo.Name() != path.Base(fname) {
+		t.Errorf("Expected %s, got %s", path.Base(fname), fInfo.Name())
+	}
+
 	buf, err := site.Read(fname)
 	if err != nil {
 		t.Errorf("Read error for %s, %s", fname, err)
@@ -63,9 +78,6 @@ func TestFS(t *testing.T) {
 	}
 	// Cleanup if successful so far
 	os.RemoveAll("testdata")
-}
-
-func TestS3Init(t *testing.T) {
 }
 
 func TestS3(t *testing.T) {
@@ -105,6 +117,24 @@ func TestS3(t *testing.T) {
 			t.Errorf("%s", err)
 			t.FailNow()
 		}
+
+		// Stat for S3
+		fInfo, err := site.Stat(fname)
+		if err != nil {
+			t.Errorf("Stat error for %s, %s", fname, err)
+			t.FailNow()
+		}
+		if fInfo == nil {
+			t.Errorf("Stat missing fInfo object %ss", fname)
+			t.FailNow()
+		}
+		if fInfo.Name() != path.Base(fname) {
+			t.Errorf("expected %s, got %s", path.Base(fname), fInfo.Name())
+		}
+		if fInfo.Size() != int64(len(expected)) {
+			t.Errorf("expected %d, got %d", int64(len(expected)), fInfo.Size())
+		}
+
 		result, err := site.Read(fname)
 		if err != nil {
 			t.Errorf("%s", err)
