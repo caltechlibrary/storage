@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+
 	// 3rd Party Packages
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
@@ -103,49 +105,92 @@ func FSClose(s *Site) error {
 
 // S3Init is a function that initialize an AWS/S3 session
 func S3Init(options map[string]interface{}) (*Site, error) {
-	cfg := map[string]interface{}{}
-	if val, ok := options["Bucket"]; ok == true {
-		cfg["Bucket"] = val
+	var (
+		awsSDKLoadConfig       bool
+		awsSharedConfigEnabled bool
+
+		awsProfile string
+		//awsBucket  string
+		awsRegion string
+
+		//awsAccessKeyId     string
+		//awsSecretAccessKey string
+		//awsSessionToken    string
+
+		sess *session.Session
+		err  error
+	)
+
+	site := new(Site)
+	site.Config = map[string]interface{}{}
+
+	// Copy the values into site.Config so they can travel with the struct
+	for key, val := range options {
+		site.Config[key] = val
 	}
 
-	sess := session.Must(session.NewSession())
-	c, err := sess.Config.Credentials.Get()
-	if err != nil {
-		fmt.Printf("DEBUG NewSession() failed, %s\n", err)
-		return nil, err
+	if val, ok := options["AwsSDKLoadConfig"]; ok == true {
+		awsSDKLoadConfig = val.(bool)
 	}
-	fmt.Printf("DEBUG credential: %+v\n", c)
-	cfg["session"] = sess
+	if val, ok := options["AwsSharedConfigEnabled"]; ok == true {
+		awsSharedConfigEnabled = val.(bool)
+	}
+
+	if awsSDKLoadConfig == true {
+		var opts session.Options
+		if awsProfile != "" {
+			opts.Profile = awsProfile
+		} else {
+			opts.Profile = "default"
+		}
+		if awsSharedConfigEnabled == true {
+			opts.SharedConfigState = session.SharedConfigEnable
+		} else {
+			opts.SharedConfigState = session.SharedConfigDisable
+			if awsRegion != "" {
+				opts.Config = aws.Config{Region: aws.String(awsRegion)}
+			}
+		}
+
+		sess, err = session.NewSessionWithOptions(opts)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		sess, err = session.NewSession()
+		if err != nil {
+			return nil, err
+		}
+	}
+	site.Config["session"] = sess
 
 	s3Svc := s3.New(sess)
-	cfg["s3Service"] = s3Svc
+	site.Config["s3Service"] = s3Svc
 
-	s := new(Site)
-	s.Config = cfg
-	s.Create = func(fname string, rd io.Reader) error {
-		return S3Create(s, fname, rd)
+	site.Create = func(fname string, rd io.Reader) error {
+		return S3Create(site, fname, rd)
 	}
-	s.Read = func(fname string) ([]byte, error) {
-		return S3Read(s, fname)
+	site.Read = func(fname string) ([]byte, error) {
+		return S3Read(site, fname)
 	}
-	s.Update = func(fname string, rd io.Reader) error {
-		return S3Update(s, fname, rd)
+	site.Update = func(fname string, rd io.Reader) error {
+		return S3Update(site, fname, rd)
 	}
-	s.Delete = func(fname string) error {
-		return S3Delete(s, fname)
+	site.Delete = func(fname string) error {
+		return S3Delete(site, fname)
 	}
-	s.Close = func() error {
-		return S3Close(s)
+	site.Close = func() error {
+		return S3Close(site)
 	}
-	return s, nil
+	return site, nil
 }
 
 // Create takes a relative path and a byte array of content and writes it to the bucket
 // associated with the Site initialized.
 func S3Create(s *Site, fname string, rd io.Reader) error {
-	if val, ok := s.Config["s3server"]; ok == true {
+	if val, ok := s.Config["s3Service"]; ok == true {
 		s3Svr := val.(s3iface.S3API)
-		val, ok := s.Config["Bucket"]
+		val, ok := s.Config["AwsBucket"]
 		if ok == false {
 			return fmt.Errorf("Bucket not defined for %s", fname)
 		}
@@ -162,7 +207,7 @@ func S3Create(s *Site, fname string, rd io.Reader) error {
 		}
 		return nil
 	}
-	return fmt.Errorf("AWS session not available")
+	return fmt.Errorf("s3Service object not available %+v", s.Config)
 }
 
 // S3Read takes a relative path and returns a byte array and error from the bucket read

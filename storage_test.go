@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"testing"
 )
 
 var (
-	testS3 string
+	testS3 bool
 )
 
 func TestFS(t *testing.T) {
-
 	site, err := Init(FS, nil)
 	if err != nil {
 		t.Errorf("Init() failed, %s", err)
@@ -61,16 +61,40 @@ func TestFS(t *testing.T) {
 		t.Errorf("Delete error for %s, %s", fname, err)
 		t.FailNow()
 	}
+	// Cleanup if successful so far
+	os.RemoveAll("testdata")
+}
+
+func TestS3Init(t *testing.T) {
 }
 
 func TestS3(t *testing.T) {
-	if testS3 != "" {
-		options := map[string]interface{}{
-			"Profile": testS3,
+	if testS3 == true {
+		options := map[string]interface{}{}
+
+		if s := os.Getenv("AWS_BUCKET"); s != "" {
+			options["AwsBucket"] = s
+		} else {
+			options["AwsBucket"] = "test"
 		}
+
+		if s := os.Getenv("AWS_SDK_LOAD_CONFIG"); s == "1" || strings.ToLower(s) == "true" {
+			options["AwsSDKLoadConfig"] = true
+			options["AwsSharedConfigEnabled"] = true
+			if t := os.Getenv("AWS_PROFILE"); t != "" {
+				options["AwsProfile"] = t
+			} else {
+				options["AwsProfile"] = "default"
+			}
+		}
+
 		site, err := Init(S3, options)
 		if err != nil {
 			t.Errorf("%s", err)
+			t.FailNow()
+		}
+		if site == nil {
+			t.Errorf("site was nil")
 			t.FailNow()
 		}
 
@@ -117,7 +141,7 @@ func TestS3(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	flag.StringVar(&testS3, "s3", "", "Run S3 storageType tests using matching profile")
+	flag.BoolVar(&testS3, "s3", false, "Run S3 storageType tests")
 	flag.Parse()
 	os.Exit(m.Run())
 }
