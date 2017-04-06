@@ -166,13 +166,14 @@ func S3Init(options map[string]interface{}) (*Site, error) {
 		return S3Read(site, fname)
 	}
 	site.Update = func(fname string, rd io.Reader) error {
-		return S3Update(site, fname, rd)
+		// NOTE: Create and Update and the same in S3, Update overwrites the existing object
+		return S3Create(site, fname, rd)
 	}
 	site.Delete = func(fname string) error {
 		return S3Delete(site, fname)
 	}
 	site.Close = func() error {
-		return S3Close(site)
+		return nil
 	}
 	return site, nil
 }
@@ -224,20 +225,22 @@ func S3Read(s *Site, fname string) ([]byte, error) {
 	return nil, fmt.Errorf("s3Service object not available")
 }
 
-// S3Update takes a relative path and a byte array of content and writes it to the bucket
-// associated with the Site initialized.
-func S3Update(s *Site, fname string, rd io.Reader) error {
-	return fmt.Errorf("S3Update() not implemented")
-}
-
 // Delete takes a relative path and returns an error if delete not successful
 func S3Delete(s *Site, fname string) error {
-	return fmt.Errorf("S3Delete() not implemented")
-}
-
-// Close closes a AWS S3 session
-func S3Close(s *Site) error {
-	return fmt.Errorf("S3Close() not implemented")
+	if val, ok := s.Config["s3Service"]; ok == true {
+		s3Svc := val.(s3iface.S3API)
+		if _, ok := s.Config["AwsBucket"]; ok == false {
+			return fmt.Errorf("Bucket not defined for %s", fname)
+		}
+		bucketName := s.Config["AwsBucket"].(string)
+		deleteParams := &s3.DeleteObjectInput{
+			Bucket: &bucketName,
+			Key:    &fname,
+		}
+		_, err := s3Svc.DeleteObject(deleteParams)
+		return err
+	}
+	return fmt.Errorf("s3Service object not available")
 }
 
 // Init returns a *Site structure that points to configuration info (e.g. S3 credentials)
