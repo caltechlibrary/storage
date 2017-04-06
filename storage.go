@@ -108,14 +108,7 @@ func S3Init(options map[string]interface{}) (*Site, error) {
 	var (
 		awsSDKLoadConfig       bool
 		awsSharedConfigEnabled bool
-
-		awsProfile string
-		//awsBucket  string
-		awsRegion string
-
-		//awsAccessKeyId     string
-		//awsSecretAccessKey string
-		//awsSessionToken    string
+		awsProfile             string
 
 		sess *session.Session
 		err  error
@@ -123,7 +116,6 @@ func S3Init(options map[string]interface{}) (*Site, error) {
 
 	site := new(Site)
 	site.Config = map[string]interface{}{}
-
 	// Copy the values into site.Config so they can travel with the struct
 	for key, val := range options {
 		site.Config[key] = val
@@ -147,9 +139,9 @@ func S3Init(options map[string]interface{}) (*Site, error) {
 			opts.SharedConfigState = session.SharedConfigEnable
 		} else {
 			opts.SharedConfigState = session.SharedConfigDisable
-			if awsRegion != "" {
-				opts.Config = aws.Config{Region: aws.String(awsRegion)}
-			}
+		}
+		if val, ok := options["AwsRegion"]; ok == true {
+			opts.Config = aws.Config{Region: aws.String(val.(string))}
 		}
 
 		sess, err = session.NewSessionWithOptions(opts)
@@ -189,30 +181,47 @@ func S3Init(options map[string]interface{}) (*Site, error) {
 // associated with the Site initialized.
 func S3Create(s *Site, fname string, rd io.Reader) error {
 	if val, ok := s.Config["s3Service"]; ok == true {
-		s3Svr := val.(s3iface.S3API)
-		val, ok := s.Config["AwsBucket"]
-		if ok == false {
+		s3Svc := val.(s3iface.S3API)
+		if _, ok := s.Config["AwsBucket"]; ok == false {
 			return fmt.Errorf("Bucket not defined for %s", fname)
 		}
-		bucketName := fmt.Sprintf("%s", val.(string))
+		bucketName := s.Config["AwsBucket"].(string)
 		upParams := &s3manager.UploadInput{
 			Bucket: &bucketName,
 			Key:    &fname,
 			Body:   rd,
 		}
-		uploader := s3manager.NewUploaderWithClient(s3Svr)
+		uploader := s3manager.NewUploaderWithClient(s3Svc)
 		_, err := uploader.Upload(upParams)
 		if err != nil {
 			return err
 		}
 		return nil
 	}
-	return fmt.Errorf("s3Service object not available %+v", s.Config)
+	return fmt.Errorf("s3Service object not available")
 }
 
 // S3Read takes a relative path and returns a byte array and error from the bucket read
 func S3Read(s *Site, fname string) ([]byte, error) {
-	return nil, fmt.Errorf("S3Read() not implemented")
+	if val, ok := s.Config["s3Service"]; ok == true {
+		s3Svc := val.(s3iface.S3API)
+		if _, ok := s.Config["AwsBucket"]; ok == false {
+			return nil, fmt.Errorf("Bucket not defined for %s", fname)
+		}
+		bucketName := s.Config["AwsBucket"].(string)
+		downloadParams := &s3.GetObjectInput{
+			Bucket: &bucketName,
+			Key:    &fname,
+		}
+		buf := &aws.WriteAtBuffer{}
+		downloader := s3manager.NewDownloaderWithClient(s3Svc)
+		_, err := downloader.Download(buf, downloadParams)
+		if err != nil {
+			return nil, err
+		}
+		return buf.Bytes(), nil
+	}
+	return nil, fmt.Errorf("s3Service object not available")
 }
 
 // S3Update takes a relative path and a byte array of content and writes it to the bucket
