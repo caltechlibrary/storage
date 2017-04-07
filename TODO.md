@@ -3,8 +3,6 @@
 
 ## Next
 
-+ [ ] tar wrapper
-
 ## Someday, Maybe
 
 + [ ] add support for our NAS
