@@ -282,6 +282,42 @@ func TestS3(t *testing.T) {
 	}
 }
 
+func TestGetDefaultStore(t *testing.T) {
+	// Clear the environment for test.
+	opts := map[string]string{}
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, "AWS_") == true {
+			kv := strings.SplitN(env, "=", 2)
+			opts[kv[0]] = kv[1]
+			os.Unsetenv(kv[0])
+		}
+	}
+	store := GetDefaultStore()
+	if store.Type == UNSUPPORTED {
+		t.Errorf("Expected FS type, got UNSUPPORTED")
+		t.FailNow()
+	}
+	if store.Type == S3 {
+		t.Errorf("Expected FS type, got S3")
+		t.FailNow()
+	}
+	// See if we have S3 defined
+	if len(opts) > 0 {
+		for k, v := range opts {
+			os.Setenv(k, v)
+		}
+	}
+	store = GetDefaultStore()
+	if store.Type == UNSUPPORTED {
+		t.Errorf("Expected S3 type, got UNSUPPORTED")
+		t.FailNow()
+	}
+	if store.Type == FS {
+		t.Errorf("Expected S3 type, got FS")
+		t.FailNow()
+	}
+}
+
 func TestMain(m *testing.M) {
 	flag.BoolVar(&testS3, "s3", false, "Run S3 storageType tests")
 	flag.Parse()
