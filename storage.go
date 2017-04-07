@@ -1,3 +1,21 @@
+//
+// storage package wraps both local disc and S3 storage with CRUD operations and common os.*, ioutil.* functions.
+//
+// @author R. S. Doiel, <rsdoiel@library.caltech.edu>
+//
+// Copyright (c) 2017, Caltech
+// All rights not granted herein are expressly reserved by Caltech.
+//
+// Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
 package storage
 
 import (
@@ -20,17 +38,20 @@ import (
 )
 
 const (
+	// UNSUPPORTED is used if Init fails the and a non-nil Store struck gets returned.
+	UNSUPPORTED = iota
 	// FS local file system
-	FS = iota
+	FS
 	// S3 remote storage via AWS S3
-	S3 = iota
+	S3
 	// Other constants will be create as other storage systems are implemented
 )
 
-// Site wrapps the given system interface normalizing to simple Create, Read, Update, Delete operations
-type Site struct {
+// Store wrapps the given system interface normalizing to simple Create, Read, Update, Delete operations
+type Store struct {
 	// Attributes holds any data needed for managing the remote session for desired operations
 	Config map[string]interface{}
+	Type   int
 
 	// Basic CRUD Operations
 	Create func(string, io.Reader) error
@@ -118,52 +139,51 @@ func (d *S3ObjectInfo) Sys() interface{} {
 	return nil
 }
 
-// FSInit initialize a file system type site
-func FSInit(options map[string]interface{}) (*Site, error) {
-	site := new(Site)
-	site.Config = options
+// FSConfigure initialize a store to a local disc system type
+func FSConfigure(store *Store) (*Store, error) {
+	store.Type = FS
 
 	// Basic CRUD ops
-	site.Create = func(fname string, rd io.Reader) error {
-		return FSCreate(site, fname, rd)
+	store.Create = func(fname string, rd io.Reader) error {
+		return FSCreate(store, fname, rd)
 	}
-	site.Read = func(fname string) ([]byte, error) {
+	store.Read = func(fname string) ([]byte, error) {
 		return ioutil.ReadFile(fname)
 	}
-	site.Update = func(fname string, rd io.Reader) error {
-		return FSUpdate(site, fname, rd)
+	store.Update = func(fname string, rd io.Reader) error {
+		return FSUpdate(store, fname, rd)
 	}
-	site.Delete = func(fname string) error {
+	store.Delete = func(fname string) error {
 		return os.Remove(fname)
 	}
 
 	// Extra ops for compatibility with os.* and ioutil.*
-	site.Stat = func(fname string) (os.FileInfo, error) {
+	store.Stat = func(fname string) (os.FileInfo, error) {
 		return os.Stat(fname)
 	}
-	site.Mkdir = func(name string, perm os.FileMode) error {
+	store.Mkdir = func(name string, perm os.FileMode) error {
 		return os.Mkdir(name, perm)
 	}
-	site.MkdirAll = func(path string, perm os.FileMode) error {
+	store.MkdirAll = func(path string, perm os.FileMode) error {
 		return os.MkdirAll(path, perm)
 	}
-	site.Remove = func(name string) error {
+	store.Remove = func(name string) error {
 		return os.Remove(name)
 	}
-	site.RemoveAll = func(path string) error {
+	store.RemoveAll = func(path string) error {
 		return os.RemoveAll(path)
 	}
-	site.ReadFile = func(fname string) ([]byte, error) {
+	store.ReadFile = func(fname string) ([]byte, error) {
 		return ioutil.ReadFile(fname)
 	}
-	site.WriteFile = func(fname string, data []byte, perm os.FileMode) error {
+	store.WriteFile = func(fname string, data []byte, perm os.FileMode) error {
 		return ioutil.WriteFile(fname, data, perm)
 	}
-	return site, nil
+	return store, nil
 }
 
 // FSCreate creates a new file on the file system with a given name from the byte array.
-func FSCreate(s *Site, fname string, rd io.Reader) error {
+func FSCreate(s *Store, fname string, rd io.Reader) error {
 	// FIXME: FSCreate should create the path elements only if necessary
 	dname := path.Dir(fname)
 	os.MkdirAll(dname, 0775)
@@ -181,7 +201,7 @@ func FSCreate(s *Site, fname string, rd io.Reader) error {
 
 // FSUpdate replaces a file on the file system with the contents fo byte array returning error.
 // It will truncate the file if necessary.
-func FSUpdate(s *Site, fname string, rd io.Reader) error {
+func FSUpdate(s *Store, fname string, rd io.Reader) error {
 	wr, err := os.OpenFile(fname, os.O_RDWR|os.O_TRUNC, 0664)
 	if err != nil {
 		return err
@@ -194,8 +214,8 @@ func FSUpdate(s *Site, fname string, rd io.Reader) error {
 	return nil
 }
 
-// S3Init is a function that initialize an AWS/S3 session
-func S3Init(options map[string]interface{}) (*Site, error) {
+// S3Configure is a function that configures a storage.Store for use with AWS S3
+func S3Configure(store *Store) (*Store, error) {
 	var (
 		awsSDKLoadConfig       bool
 		awsSharedConfigEnabled bool
@@ -205,17 +225,13 @@ func S3Init(options map[string]interface{}) (*Site, error) {
 		err  error
 	)
 
-	site := new(Site)
-	site.Config = map[string]interface{}{}
-	// Copy the values into site.Config so they can travel with the struct
-	for key, val := range options {
-		site.Config[key] = val
-	}
+	// Set storage type to S3
+	store.Type = S3
 
-	if val, ok := options["AwsSDKLoadConfig"]; ok == true {
+	if val, ok := store.Config["AwsSDKLoadConfig"]; ok == true {
 		awsSDKLoadConfig = val.(bool)
 	}
-	if val, ok := options["AwsSharedConfigEnabled"]; ok == true {
+	if val, ok := store.Config["AwsSharedConfigEnabled"]; ok == true {
 		awsSharedConfigEnabled = val.(bool)
 	}
 
@@ -231,7 +247,7 @@ func S3Init(options map[string]interface{}) (*Site, error) {
 		} else {
 			opts.SharedConfigState = session.SharedConfigDisable
 		}
-		if val, ok := options["AwsRegion"]; ok == true {
+		if val, ok := store.Config["AwsRegion"]; ok == true {
 			opts.Config = aws.Config{Region: aws.String(val.(string))}
 		}
 
@@ -245,55 +261,55 @@ func S3Init(options map[string]interface{}) (*Site, error) {
 			return nil, err
 		}
 	}
-	site.Config["session"] = sess
+	store.Config["session"] = sess
 
 	s3Svc := s3.New(sess)
-	site.Config["s3Service"] = s3Svc
+	store.Config["s3Service"] = s3Svc
 
 	// Basic Ops
-	site.Create = func(fname string, rd io.Reader) error {
-		return S3Create(site, fname, rd)
+	store.Create = func(fname string, rd io.Reader) error {
+		return S3Create(store, fname, rd)
 	}
-	site.Read = func(fname string) ([]byte, error) {
-		return S3Read(site, fname)
+	store.Read = func(fname string) ([]byte, error) {
+		return S3Read(store, fname)
 	}
-	site.Update = func(fname string, rd io.Reader) error {
+	store.Update = func(fname string, rd io.Reader) error {
 		// NOTE: Create and Update and the same in S3, Update overwrites the existing object
-		return S3Create(site, fname, rd)
+		return S3Create(store, fname, rd)
 	}
-	site.Delete = func(fname string) error {
-		return S3Remove(site, fname)
+	store.Delete = func(fname string) error {
+		return S3Remove(store, fname)
 	}
 
 	// Extra ops for compatibilty with os.* and ioutil.*
-	site.Stat = func(fname string) (os.FileInfo, error) {
-		return S3Stat(site, fname)
+	store.Stat = func(fname string) (os.FileInfo, error) {
+		return S3Stat(store, fname)
 	}
-	site.Mkdir = func(name string, perm os.FileMode) error {
+	store.Mkdir = func(name string, perm os.FileMode) error {
 		//NOTE: S3 lacks the concept of directories, the fill path is the "Key" value info the bucket
 		return nil
 	}
-	site.MkdirAll = func(path string, perm os.FileMode) error {
+	store.MkdirAll = func(path string, perm os.FileMode) error {
 		//NOTE: S3 lacks the concept of directories, the fill path is the "Key" value info the bucket
 		return nil
 	}
-	site.Remove = func(fname string) error {
-		return S3Remove(site, fname)
+	store.Remove = func(fname string) error {
+		return S3Remove(store, fname)
 	}
-	site.RemoveAll = func(fname string) error {
-		return S3RemoveAll(site, fname)
+	store.RemoveAll = func(fname string) error {
+		return S3RemoveAll(store, fname)
 	}
-	site.ReadFile = func(fname string) ([]byte, error) {
-		return S3Read(site, fname)
+	store.ReadFile = func(fname string) ([]byte, error) {
+		return S3Read(store, fname)
 	}
-	site.WriteFile = func(fname string, data []byte, perm os.FileMode) error {
-		return S3Create(site, fname, bytes.NewBuffer(data))
+	store.WriteFile = func(fname string, data []byte, perm os.FileMode) error {
+		return S3Create(store, fname, bytes.NewBuffer(data))
 	}
-	return site, nil
+	return store, nil
 }
 
 // S3Stat takes a file name and returns a FileInfo and error value
-func S3Stat(s *Site, fname string) (os.FileInfo, error) {
+func S3Stat(s *Store, fname string) (os.FileInfo, error) {
 	if val, ok := s.Config["s3Service"]; ok == true {
 		s3Svc := val.(s3iface.S3API)
 		if _, ok := s.Config["AwsBucket"]; ok == false {
@@ -322,8 +338,8 @@ func S3Stat(s *Site, fname string) (os.FileInfo, error) {
 }
 
 // Create takes a full path and a byte array of content and writes it to the bucket
-// associated with the Site initialized.
-func S3Create(s *Site, fname string, rd io.Reader) error {
+// associated with the Store initialized.
+func S3Create(s *Store, fname string, rd io.Reader) error {
 	if val, ok := s.Config["s3Service"]; ok == true {
 		s3Svc := val.(s3iface.S3API)
 		if _, ok := s.Config["AwsBucket"]; ok == false {
@@ -346,7 +362,7 @@ func S3Create(s *Site, fname string, rd io.Reader) error {
 }
 
 // S3Read takes a full path and returns a byte array and error from the bucket read
-func S3Read(s *Site, fname string) ([]byte, error) {
+func S3Read(s *Store, fname string) ([]byte, error) {
 	if val, ok := s.Config["s3Service"]; ok == true {
 		s3Svc := val.(s3iface.S3API)
 		if _, ok := s.Config["AwsBucket"]; ok == false {
@@ -369,7 +385,7 @@ func S3Read(s *Site, fname string) ([]byte, error) {
 }
 
 // S3Remove takes a full path and returns an error if delete not successful
-func S3Remove(s *Site, fname string) error {
+func S3Remove(s *Store, fname string) error {
 	if val, ok := s.Config["s3Service"]; ok == true {
 		s3Svc := val.(s3iface.S3API)
 		if _, ok := s.Config["AwsBucket"]; ok == false {
@@ -387,7 +403,7 @@ func S3Remove(s *Site, fname string) error {
 }
 
 // S3RemoveAll takes a path prefix and delete matching items (up to 1000) and returns an error if delete not successful
-func S3RemoveAll(s *Site, prefixName string) error {
+func S3RemoveAll(s *Store, prefixName string) error {
 	if val, ok := s.Config["s3Service"]; ok == true {
 		s3Svc := val.(s3iface.S3API)
 		if _, ok := s.Config["AwsBucket"]; ok == false {
@@ -430,15 +446,45 @@ func S3RemoveAll(s *Site, prefixName string) error {
 	return fmt.Errorf("s3Service not configured")
 }
 
-// Init returns a *Site structure that points to configuration info (e.g. S3 credentials)
-// and basic CRUD functions associated with the Site's storage type.
-func Init(storageType int, options map[string]interface{}) (*Site, error) {
-	switch storageType {
-	case FS:
-		return FSInit(options)
-	case S3:
-		return S3Init(options)
-	default:
-		return nil, fmt.Errorf("storageType not supported")
+// Init returns a *Store structure that points to configuration info (e.g. S3 credentials)
+// and basic CRUD functions associated with the Store's storage type.
+func Init(storeType int, options map[string]interface{}) (*Store, error) {
+	store := new(Store)
+	store.Type = UNSUPPORTED
+	// Copy the values into store.Config so they can travel with the struct
+	store.Config = map[string]interface{}{}
+	for key, val := range options {
+		store.Config[key] = val
 	}
+	switch storeType {
+	case FS:
+		return FSConfigure(store)
+	case S3:
+		return S3Configure(store)
+	default:
+		return store, fmt.Errorf("storeType not supported")
+	}
+}
+
+// GetDefaultStore tries to guess the storage type based on environment settings
+// if it can't is assumes storage.FS type.
+func GetDefaultStore() *Store {
+	opts := map[string]interface{}{}
+	sType := FS
+	for _, env := range os.Environ() {
+		fmt.Printf("DEBUG env: %q\n", env)
+		if strings.Contains(env, "=") {
+			kv := strings.SplitN(env, "=", 2)
+			if len(kv) == 2 {
+				k, v := kv[0], kv[1]
+				opts[k] = v
+				if strings.HasPrefix(k, "AWS_") == true {
+					sType = S3
+				}
+			}
+		}
+	}
+	//FIXME: pull any relevant environment into the options.
+	store, _ := Init(sType, opts)
+	return store
 }

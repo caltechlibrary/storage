@@ -1,3 +1,21 @@
+//
+// storage package wraps both local disc and S3 storage with CRUD operations and common os.*, ioutil.* functions.
+//
+// @author R. S. Doiel, <rsdoiel@library.caltech.edu>
+//
+// Copyright (c) 2017, Caltech
+// All rights not granted herein are expressly reserved by Caltech.
+//
+// Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
 package storage
 
 import (
@@ -15,19 +33,19 @@ var (
 )
 
 func TestFS(t *testing.T) {
-	site, err := Init(FS, nil)
+	store, err := Init(FS, nil)
 	if err != nil {
 		t.Errorf("Init() failed, %s", err)
 		t.FailNow()
 	}
 
 	// Create a directories  if needed
-	err = site.Mkdir("testdata", 0775)
+	err = store.Mkdir("testdata", 0775)
 	if err != nil {
 		t.Errorf("Can't create testdata directory, %s", err)
 		t.FailNow()
 	}
-	err = site.MkdirAll("testdata/subdir1/subdir2", 0775)
+	err = store.MkdirAll("testdata/subdir1/subdir2", 0775)
 	if err != nil {
 		t.Errorf("Can't create testdata/subdir1/subdir2 directory, %s", err)
 		t.FailNow()
@@ -35,14 +53,14 @@ func TestFS(t *testing.T) {
 
 	fname := path.Join("testdata", "helloworld.txt")
 	helloworld := []byte(`Hello World!!!!`)
-	err = site.Create(fname, bytes.NewReader(helloworld))
+	err = store.Create(fname, bytes.NewReader(helloworld))
 	if err != nil {
 		t.Errorf("Create error for %s, %s", fname, err)
 		t.FailNow()
 	}
 
 	// Stat for FS
-	fInfo, err := site.Stat(fname)
+	fInfo, err := store.Stat(fname)
 	if err != nil {
 		t.Errorf("Stat error for %s, %s", fname, err)
 		t.FailNow()
@@ -55,7 +73,7 @@ func TestFS(t *testing.T) {
 		t.Errorf("Expected %s, got %s", path.Base(fname), fInfo.Name())
 	}
 
-	buf, err := site.Read(fname)
+	buf, err := store.Read(fname)
 	if err != nil {
 		t.Errorf("Read error for %s, %s", fname, err)
 		t.FailNow()
@@ -65,13 +83,13 @@ func TestFS(t *testing.T) {
 		t.FailNow()
 	}
 	helloworld = []byte("Hello World.")
-	err = site.Update(fname, bytes.NewReader(helloworld))
+	err = store.Update(fname, bytes.NewReader(helloworld))
 	if err != nil {
 		t.Errorf("Update error for %s, %s", fname, err)
 		t.FailNow()
 	}
 	// Re-read the data we just wrote out
-	buf, err = site.Read(fname)
+	buf, err = store.Read(fname)
 	if err != nil {
 		t.Errorf("Read error for %s, %s after update", fname, err)
 		t.FailNow()
@@ -81,7 +99,7 @@ func TestFS(t *testing.T) {
 		t.FailNow()
 	}
 	// Re-read the data we just wrote out
-	buf, err = site.ReadFile(fname)
+	buf, err = store.ReadFile(fname)
 	if err != nil {
 		t.Errorf("ReadFile error for %s, %s after update", fname, err)
 		t.FailNow()
@@ -93,12 +111,12 @@ func TestFS(t *testing.T) {
 
 	// Write file out again
 	data := []byte("Hi There")
-	err = site.WriteFile(fname, data, 0664)
+	err = store.WriteFile(fname, data, 0664)
 	if err != nil {
 		t.Errorf("WriteFile error for %s, %s", fname, err)
 		t.FailNow()
 	}
-	buf, err = site.ReadFile(fname)
+	buf, err = store.ReadFile(fname)
 	if err != nil {
 		t.Errorf("ReadFile error for %s, %s after update", fname, err)
 		t.FailNow()
@@ -108,18 +126,18 @@ func TestFS(t *testing.T) {
 		t.FailNow()
 	}
 
-	err = site.Delete(fname)
+	err = store.Delete(fname)
 	if err != nil {
 		t.Errorf("Delete error for %s, %s", fname, err)
 		t.FailNow()
 	}
 	// Cleanup if successful so far
-	err = site.Remove("testdata/subdir1/subdir2")
+	err = store.Remove("testdata/subdir1/subdir2")
 	if err != nil {
 		t.Errorf("Could not remove testdata/subdir1/subdir2s, %s", err)
 		t.FailNow()
 	}
-	err = site.RemoveAll("testdata")
+	err = store.RemoveAll("testdata")
 	if err != nil {
 		t.Errorf("Could not remove testdata and it's children, %s", err)
 		t.FailNow()
@@ -146,23 +164,23 @@ func TestS3(t *testing.T) {
 			}
 		}
 
-		site, err := Init(S3, options)
+		store, err := Init(S3, options)
 		if err != nil {
 			t.Errorf("%s", err)
 			t.FailNow()
 		}
-		if site == nil {
-			t.Errorf("site was nil")
+		if store == nil {
+			t.Errorf("store was nil")
 			t.FailNow()
 		}
 
 		// Create a directories  if needed
-		err = site.Mkdir("testdata", 0775)
+		err = store.Mkdir("testdata", 0775)
 		if err != nil {
 			t.Errorf("Can't create testdata directory, %s", err)
 			t.FailNow()
 		}
-		err = site.MkdirAll("testdata/subdir1/subdir2", 0775)
+		err = store.MkdirAll("testdata/subdir1/subdir2", 0775)
 		if err != nil {
 			t.Errorf("Can't create testdata/subdir1/subdir2 directory, %s", err)
 			t.FailNow()
@@ -170,14 +188,14 @@ func TestS3(t *testing.T) {
 
 		fname := `testdata/helloworld.txt`
 		expected := []byte(`Hello World!!!`)
-		err = site.Create(fname, bytes.NewReader(expected))
+		err = store.Create(fname, bytes.NewReader(expected))
 		if err != nil {
 			t.Errorf("%s", err)
 			t.FailNow()
 		}
 
 		// Stat for S3
-		fInfo, err := site.Stat(fname)
+		fInfo, err := store.Stat(fname)
 		if err != nil {
 			t.Errorf("Stat error for %s, %s", fname, err)
 			t.FailNow()
@@ -194,13 +212,13 @@ func TestS3(t *testing.T) {
 		}
 
 		// Stat for S3 non-object
-		fInfo, err = site.Stat(path.Dir(fname))
+		fInfo, err = store.Stat(path.Dir(fname))
 		if err == nil {
 			t.Errorf("Expected err != nil, fInfo: %s\n", fInfo)
 			t.FailNow()
 		}
 
-		result, err := site.Read(fname)
+		result, err := store.Read(fname)
 		if err != nil {
 			t.Errorf("%s", err)
 			t.FailNow()
@@ -210,13 +228,13 @@ func TestS3(t *testing.T) {
 			t.FailNow()
 		}
 		expected = []byte(`Hello World.`)
-		err = site.Update(fname, bytes.NewReader(expected))
+		err = store.Update(fname, bytes.NewReader(expected))
 		if err != nil {
 			t.Errorf("%s", err)
 			t.FailNow()
 		}
 		// Now read back the data and make sure it changed
-		result, err = site.Read(fname)
+		result, err = store.Read(fname)
 		if err != nil {
 			t.Errorf("%s", err)
 			t.FailNow()
@@ -227,12 +245,12 @@ func TestS3(t *testing.T) {
 		}
 
 		data := []byte("Hi There")
-		err = site.WriteFile(fname, data, 0664)
+		err = store.WriteFile(fname, data, 0664)
 		if err != nil {
 			t.Errorf("Error WriteFile(%q) %s", fname, err)
 			t.FailNow()
 		}
-		buf, err := site.ReadFile(fname)
+		buf, err := store.ReadFile(fname)
 		if err != nil {
 			t.Errorf("Error ReadFile(%q) %s", fname, err)
 			t.FailNow()
@@ -242,19 +260,19 @@ func TestS3(t *testing.T) {
 			t.FailNow()
 		}
 
-		err = site.Delete(fname)
+		err = store.Delete(fname)
 		if err != nil {
 			t.Errorf("%s", err)
 			t.FailNow()
 		}
 
 		// Cleanup if successful so far
-		err = site.Remove("testdata/subdir1/subdir2")
+		err = store.Remove("testdata/subdir1/subdir2")
 		if err != nil {
 			t.Errorf("Could not remove testdata/subdir1/subdir2s, %s", err)
 			t.FailNow()
 		}
-		err = site.RemoveAll("testdata")
+		err = store.RemoveAll("testdata")
 		if err != nil {
 			t.Errorf("Could not remove testdata and it's children, %s", err)
 			t.FailNow()
