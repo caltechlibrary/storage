@@ -3,19 +3,18 @@
 
 ## Next
 
-+ [ ] Stat
++ [x] Stat
++ [x] Remove
++ [x] RemoveAll
++ [x] Mkdir
++ [x] MkdirAll
++ [x] ReadFile
++ [x] WriteFile
 
 ## Someday, Maybe
 
-+ [ ] ReadFile
-+ [ ] WriteFile
-+ [ ] Remove
-+ [ ] RemoveAll
-+ [ ] Mkdir
-+ [ ] MkdirAll
-+ [ ] AppendFile
++ [ ] add support for our NAS
 + [ ] add support for Dropbox
 + [ ] add support for Google Drive
 + [ ] add support for Box
-+ [ ] add support for our NAS
 

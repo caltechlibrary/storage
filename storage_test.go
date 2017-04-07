@@ -20,10 +20,19 @@ func TestFS(t *testing.T) {
 		t.Errorf("Init() failed, %s", err)
 		t.FailNow()
 	}
-	defer site.Close()
 
-	// Create a file T if needed
-	os.Mkdir("testdata", 0775)
+	// Create a directories  if needed
+	err = site.Mkdir("testdata", 0775)
+	if err != nil {
+		t.Errorf("Can't create testdata directory, %s", err)
+		t.FailNow()
+	}
+	err = site.MkdirAll("testdata/subdir1/subdir2", 0775)
+	if err != nil {
+		t.Errorf("Can't create testdata/subdir1/subdir2 directory, %s", err)
+		t.FailNow()
+	}
+
 	fname := path.Join("testdata", "helloworld.txt")
 	helloworld := []byte(`Hello World!!!!`)
 	err = site.Create(fname, bytes.NewReader(helloworld))
@@ -71,13 +80,50 @@ func TestFS(t *testing.T) {
 		t.Errorf("Expected %q, got %q after update", helloworld, buf)
 		t.FailNow()
 	}
+	// Re-read the data we just wrote out
+	buf, err = site.ReadFile(fname)
+	if err != nil {
+		t.Errorf("ReadFile error for %s, %s after update", fname, err)
+		t.FailNow()
+	}
+	if bytes.Compare(buf, helloworld) != 0 {
+		t.Errorf("Expected %q, got %q after update", helloworld, buf)
+		t.FailNow()
+	}
+
+	// Write file out again
+	data := []byte("Hi There")
+	err = site.WriteFile(fname, data, 0664)
+	if err != nil {
+		t.Errorf("WriteFile error for %s, %s", fname, err)
+		t.FailNow()
+	}
+	buf, err = site.ReadFile(fname)
+	if err != nil {
+		t.Errorf("ReadFile error for %s, %s after update", fname, err)
+		t.FailNow()
+	}
+	if bytes.Compare(data, buf) != 0 {
+		t.Errorf("Expected %q, got %q after update", data, buf)
+		t.FailNow()
+	}
+
 	err = site.Delete(fname)
 	if err != nil {
 		t.Errorf("Delete error for %s, %s", fname, err)
 		t.FailNow()
 	}
 	// Cleanup if successful so far
-	os.RemoveAll("testdata")
+	err = site.Remove("testdata/subdir1/subdir2")
+	if err != nil {
+		t.Errorf("Could not remove testdata/subdir1/subdir2s, %s", err)
+		t.FailNow()
+	}
+	err = site.RemoveAll("testdata")
+	if err != nil {
+		t.Errorf("Could not remove testdata and it's children, %s", err)
+		t.FailNow()
+	}
 }
 
 func TestS3(t *testing.T) {
@@ -110,6 +156,18 @@ func TestS3(t *testing.T) {
 			t.FailNow()
 		}
 
+		// Create a directories  if needed
+		err = site.Mkdir("testdata", 0775)
+		if err != nil {
+			t.Errorf("Can't create testdata directory, %s", err)
+			t.FailNow()
+		}
+		err = site.MkdirAll("testdata/subdir1/subdir2", 0775)
+		if err != nil {
+			t.Errorf("Can't create testdata/subdir1/subdir2 directory, %s", err)
+			t.FailNow()
+		}
+
 		fname := `testdata/helloworld.txt`
 		expected := []byte(`Hello World!!!`)
 		err = site.Create(fname, bytes.NewReader(expected))
@@ -133,6 +191,13 @@ func TestS3(t *testing.T) {
 		}
 		if fInfo.Size() != int64(len(expected)) {
 			t.Errorf("expected %d, got %d", int64(len(expected)), fInfo.Size())
+		}
+
+		// Stat for S3 non-object
+		fInfo, err = site.Stat(path.Dir(fname))
+		if err == nil {
+			t.Errorf("Expected err != nil, fInfo: %s\n", fInfo)
+			t.FailNow()
 		}
 
 		result, err := site.Read(fname)
@@ -160,9 +225,38 @@ func TestS3(t *testing.T) {
 			t.Errorf("expected %q, got %q", expected, result)
 			t.FailNow()
 		}
+
+		data := []byte("Hi There")
+		err = site.WriteFile(fname, data, 0664)
+		if err != nil {
+			t.Errorf("Error WriteFile(%q) %s", fname, err)
+			t.FailNow()
+		}
+		buf, err := site.ReadFile(fname)
+		if err != nil {
+			t.Errorf("Error ReadFile(%q) %s", fname, err)
+			t.FailNow()
+		}
+		if bytes.Compare(data, buf) != 0 {
+			t.Errorf("expected %q, got %q", expected, result)
+			t.FailNow()
+		}
+
 		err = site.Delete(fname)
 		if err != nil {
 			t.Errorf("%s", err)
+			t.FailNow()
+		}
+
+		// Cleanup if successful so far
+		err = site.Remove("testdata/subdir1/subdir2")
+		if err != nil {
+			t.Errorf("Could not remove testdata/subdir1/subdir2s, %s", err)
+			t.FailNow()
+		}
+		err = site.RemoveAll("testdata")
+		if err != nil {
+			t.Errorf("Could not remove testdata and it's children, %s", err)
 			t.FailNow()
 		}
 	} else {
