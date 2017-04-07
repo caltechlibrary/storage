@@ -436,7 +436,6 @@ func S3RemoveAll(s *Store, prefixName string) error {
 			}
 			res, err := s3Svc.ListObjects(statParams)
 			if err != nil {
-				fmt.Printf("DEBUG this is the case where we're handling the deletion of more than 1000 objects for prefixName")
 				return err
 			}
 			cnt = len(res.Contents)
@@ -472,7 +471,6 @@ func GetDefaultStore() *Store {
 	opts := map[string]interface{}{}
 	sType := FS
 	for _, env := range os.Environ() {
-		fmt.Printf("DEBUG env: %q\n", env)
 		if strings.Contains(env, "=") {
 			kv := strings.SplitN(env, "=", 2)
 			if len(kv) == 2 {
