@@ -214,6 +214,39 @@ func FSUpdate(s *Store, fname string, rd io.Reader) error {
 	return nil
 }
 
+// EnvToOptions given an environment map envvars to their option.
+func EnvToOptions(env []string) map[string]interface{} {
+	opts := map[string]interface{}{}
+	for _, stmt := range env {
+		if strings.HasPrefix(stmt, "AWS_") && strings.Contains(stmt, "=") {
+			kv := strings.SplitN(stmt, "=", 2)
+			switch kv[0] {
+			case "AWS_SDK_LOAD_CONFIG":
+				if kv[0] == "1" || strings.ToLower(kv[1]) == "true" {
+					opts["AwsSDKLoadConfig"] = true
+				} else {
+					opts["AwsSDKLoadConfig"] = false
+				}
+			case "AWS_PROFILE":
+				if kv[0] != "" {
+					opts["AwsProfile"] = kv[1]
+				} else {
+					opts["AwsProfile"] = "default"
+				}
+			case "AWS_SHARED_CONFIG_ENABLED":
+				if kv[0] == "1" || strings.ToLower(kv[1]) == "true" {
+					opts["AwsSharedConfigEnabled"] = true
+				} else {
+					opts["AwsSharedConfigEnabled"] = false
+				}
+			case "AWS_BUCKET":
+				opts["AwsBucket"] = kv[1]
+			}
+		}
+	}
+	return opts
+}
+
 // S3Configure is a function that configures a storage.Store for use with AWS S3
 func S3Configure(store *Store) (*Store, error) {
 	var (
@@ -501,8 +534,8 @@ func GetDefaultStore() *Store {
 	return store
 }
 
-// WriteAfter takes a final filename, a function to process the file and returns an error
-// You can use a closure to passing in additional information to process to work
+// WriteAfter writes a file after running apply a filter function to its' file pointer
+// E.g. composing a tarball before uploading results to S3
 func (store *Store) WriteAfter(finalPath string, processor func(fp *os.File) error) error {
 	// Open temp file as file point
 	tmp, err := ioutil.TempFile(os.TempDir(), path.Base(finalPath))
