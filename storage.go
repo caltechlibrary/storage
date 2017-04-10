@@ -534,9 +534,9 @@ func GetDefaultStore() *Store {
 	return store
 }
 
-// WriteAfter writes a file after running apply a filter function to its' file pointer
+// WriteFilter writes a file after running apply a filter function to its' file pointer
 // E.g. composing a tarball before uploading results to S3
-func (store *Store) WriteAfter(finalPath string, processor func(fp *os.File) error) error {
+func (store *Store) WriteFilter(finalPath string, processor func(fp *os.File) error) error {
 	// Open temp file as file point
 	tmp, err := ioutil.TempFile(os.TempDir(), path.Base(finalPath))
 	if err != nil {

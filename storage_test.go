@@ -320,7 +320,7 @@ func TestGetDefaultStore(t *testing.T) {
 	}
 }
 
-func TestWriteAfter(t *testing.T) {
+func TestWriteFilter(t *testing.T) {
 	store := GetDefaultStore()
 	start := 0
 	finish := 9
@@ -328,7 +328,7 @@ func TestWriteAfter(t *testing.T) {
 		_ = os.Mkdir("testdata", 0775)
 		defer os.RemoveAll("testdata")
 	}
-	err := store.WriteAfter("testdata/after-test.txt", func(fp *os.File) error {
+	err := store.WriteFilter("testdata/after-test.txt", func(fp *os.File) error {
 		for i := start; i <= finish; i++ {
 			fmt.Fprintf(fp, "%d\n", i)
 		}
