@@ -9,7 +9,7 @@ BRANCH = $(shell git branch | grep '* ' | cut -d\  -f 2)
 
 
 test:
-	go test
+	if [ "$(s3)" != "" ]; then go test -s3; else go test; fi
 
 format:
 	gofmt -w storage.go
