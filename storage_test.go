@@ -307,14 +307,46 @@ func TestGetDefaultStore(t *testing.T) {
 			os.Setenv(k, v)
 		}
 	}
-	store = GetDefaultStore()
-	if store.Type == UNSUPPORTED {
-		t.Errorf("Expected S3 type, got UNSUPPORTED")
+	if testS3 == true {
+		store = GetDefaultStore()
+		if store.Type == UNSUPPORTED {
+			t.Errorf("Expected S3 type, got UNSUPPORTED")
+			t.FailNow()
+		}
+		if store.Type == FS {
+			t.Errorf("Expected S3 type, got FS")
+			t.FailNow()
+		}
+	}
+}
+
+func TestWriteAfter(t *testing.T) {
+	store := GetDefaultStore()
+	start := 0
+	finish := 9
+	if store.Type == FS {
+		_ = os.Mkdir("testdata", 0775)
+		defer os.RemoveAll("testdata")
+	}
+	err := store.WriteAfter("testdata/after-test.txt", func(fp *os.File) error {
+		for i := start; i <= finish; i++ {
+			fmt.Fprintf(fp, "%d\n", i)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Errorf("%s", err)
 		t.FailNow()
 	}
-	if store.Type == FS {
-		t.Errorf("Expected S3 type, got FS")
+	data, err := store.ReadFile("testdata/after-test.txt")
+	if err != nil {
+		t.Errorf("%s", err)
 		t.FailNow()
+	}
+	for i, line := range strings.Split(string(data), "\n") {
+		if i <= finish && fmt.Sprintf("%d", i) != line {
+			t.Errorf("mismatch at line %d, expected %d, got %s", i, i, line)
+		}
 	}
 }
 

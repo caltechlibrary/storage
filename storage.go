@@ -482,7 +482,75 @@ func GetDefaultStore() *Store {
 			}
 		}
 	}
-	//FIXME: pull any relevant environment into the options.
+	if sType == S3 {
+		if s := os.Getenv("AWS_BUCKET"); s != "" {
+			opts["AwsBucket"] = s
+		}
+		if s := os.Getenv("AWS_SDK_LOAD_CONFIG"); s == "1" || strings.ToLower(s) == "true" {
+			opts["AwsSDKLoadConfig"] = true
+			opts["AwsSharedConfigEnabled"] = true
+			if t := os.Getenv("AWS_PROFILE"); t != "" {
+				opts["AwsProfile"] = t
+			} else {
+				opts["AwsProfile"] = "default"
+			}
+		}
+	}
+
 	store, _ := Init(sType, opts)
 	return store
+}
+
+// WriteAfter takes a final filename, a function to process the file and returns an error
+// You can use a closure to passing in additional information to process to work
+func (store *Store) WriteAfter(finalPath string, processor func(fp *os.File) error) error {
+	// Open temp file as file point
+	tmp, err := ioutil.TempFile(os.TempDir(), path.Base(finalPath))
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	tmpName := tmp.Name()
+
+	// Envoke processor function
+	err = processor(tmp)
+	if err != nil {
+		return err
+	}
+	err = tmp.Close()
+	if err != nil {
+		return err
+	}
+
+	// Store the results
+	if store.Type == S3 {
+		// if store.Type == S3, upload temp filename with fname
+		if val, ok := store.Config["s3Service"]; ok == true {
+			s3Svc := val.(s3iface.S3API)
+			if _, ok := store.Config["AwsBucket"]; ok == false {
+				return fmt.Errorf("Bucket not defined for %s", finalPath)
+			}
+			bucketName := store.Config["AwsBucket"].(string)
+
+			rd, err := os.Open(tmpName)
+			if err != nil {
+				return err
+			}
+			defer rd.Close()
+
+			upParams := &s3manager.UploadInput{
+				Bucket: &bucketName,
+				Key:    &finalPath,
+				Body:   rd,
+			}
+			uploader := s3manager.NewUploaderWithClient(s3Svc)
+			_, err = uploader.Upload(upParams)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+		return fmt.Errorf("s3Service not configured")
+	}
+	return os.Rename(tmpName, finalPath)
 }
