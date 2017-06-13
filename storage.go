@@ -97,6 +97,7 @@ func S3ToObjectInfo(o *s3.Object) *S3ObjectInfo {
 }
 
 // Name returns the Key after evaluating with path.Base() so we match os.FileInfo.Name()
+// or an empty string
 func (d *S3ObjectInfo) Name() string {
 	if val, ok := d.Info["Key"]; ok == true {
 		p := val.(*string)
@@ -106,6 +107,7 @@ func (d *S3ObjectInfo) Name() string {
 }
 
 // Size returns the size of an object reported by listing the object
+// Or zero as a int64 if not available
 func (d *S3ObjectInfo) Size() int64 {
 	if val, ok := d.Info["Size"]; ok == true {
 		size := val.(*int64)
@@ -115,12 +117,12 @@ func (d *S3ObjectInfo) Size() int64 {
 }
 
 // ModTime returns the value of LastModied reported by listing the object
+// or an empty Time object if not available
 func (d *S3ObjectInfo) ModTime() time.Time {
 	if val, ok := d.Info["LastModified"]; ok == true {
 		t := val.(*time.Time)
 		return *t
 	}
-
 	return time.Time{}
 }
 
