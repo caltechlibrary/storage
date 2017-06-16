@@ -350,6 +350,14 @@ func TestWriteFilter(t *testing.T) {
 	}
 }
 
+func TestCreateOnExistingS3(t *testing.T) {
+	data := map[string]int{
+		"one":   1,
+		"two":   2,
+		"three": 3,
+	}
+}
+
 func TestMain(m *testing.M) {
 	flag.BoolVar(&testS3, "s3", false, "Run S3 storageType tests")
 	flag.Parse()
