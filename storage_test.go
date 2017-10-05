@@ -30,6 +30,7 @@ import (
 
 var (
 	testS3 bool
+	testGS bool
 )
 
 func TestFS(t *testing.T) {
@@ -141,6 +142,14 @@ func TestFS(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not remove testdata and it's children, %s", err)
 		t.FailNow()
+	}
+}
+
+func TestGS(t *testing.T) {
+	if testGS == true {
+		t.Errorf("TestGS() not implemented, Google Cloud Storage not implemented")
+	} else {
+		fmt.Println("Skipping TestGS (go test -gs)")
 	}
 }
 
@@ -278,7 +287,7 @@ func TestS3(t *testing.T) {
 			t.FailNow()
 		}
 	} else {
-		fmt.Println("Skipping TestS3")
+		fmt.Println("Skipping TestS3 (go test -s3)")
 	}
 }
 
@@ -350,6 +359,7 @@ func TestWriteFilter(t *testing.T) {
 	}
 }
 
+/*
 func TestCreateOnExistingS3(t *testing.T) {
 	data := map[string]int{
 		"one":   1,
@@ -357,9 +367,18 @@ func TestCreateOnExistingS3(t *testing.T) {
 		"three": 3,
 	}
 }
+*/
 
 func TestMain(m *testing.M) {
+	var all bool
+
+	flag.BoolVar(&all, "all", false, "Run All tests include S3 and GS storage")
 	flag.BoolVar(&testS3, "s3", false, "Run S3 storageType tests")
+	flag.BoolVar(&testGS, "gs", false, "Run GS storageType tests")
 	flag.Parse()
+	if all == true {
+		testS3 = true
+		testGS = true
+	}
 	os.Exit(m.Run())
 }
