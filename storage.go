@@ -21,18 +21,8 @@ package storage
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
-	//"log"
 	"os"
-	"path"
 	"strings"
-
-	// 3rd Party Packages
-	//"github.com/aws/aws-sdk-go/aws"
-	//"github.com/aws/aws-sdk-go/aws/session"
-	//"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
 const (
@@ -70,84 +60,15 @@ type Store struct {
 	RemoveAll func(string) error
 	ReadFile  func(string) ([]byte, error)
 	WriteFile func(string, []byte, os.FileMode) error
+
+	// Extended operations for datatools and dataset
+	// Writefilter takes a final path and a processing function which accepts the temp pointer
+	WriteFilter func(string, func(*os.File) error) error
 }
 
-// FSConfigure initialize a store to a local disc system type
-func FSConfigure(store *Store) (*Store, error) {
-	store.Type = FS
-
-	// Basic CRUD ops
-	store.Create = func(fname string, rd io.Reader) error {
-		return FSCreate(store, fname, rd)
-	}
-	store.Read = func(fname string) ([]byte, error) {
-		return ioutil.ReadFile(fname)
-	}
-	store.Update = func(fname string, rd io.Reader) error {
-		return FSUpdate(store, fname, rd)
-	}
-	store.Delete = func(fname string) error {
-		return os.Remove(fname)
-	}
-
-	// Extra ops for compatibility with os.* and ioutil.*
-	store.Stat = func(fname string) (os.FileInfo, error) {
-		return os.Stat(fname)
-	}
-	store.Mkdir = func(name string, perm os.FileMode) error {
-		return os.Mkdir(name, perm)
-	}
-	store.MkdirAll = func(path string, perm os.FileMode) error {
-		return os.MkdirAll(path, perm)
-	}
-	store.Remove = func(name string) error {
-		return os.Remove(name)
-	}
-	store.RemoveAll = func(path string) error {
-		return os.RemoveAll(path)
-	}
-	store.ReadFile = func(fname string) ([]byte, error) {
-		return ioutil.ReadFile(fname)
-	}
-	store.WriteFile = func(fname string, data []byte, perm os.FileMode) error {
-		return ioutil.WriteFile(fname, data, perm)
-	}
-	return store, nil
-}
-
-// FSCreate creates a new file on the file system with a given name from the byte array.
-func FSCreate(s *Store, fname string, rd io.Reader) error {
-	// FIXME: FSCreate should create the path elements only if necessary
-	dname := path.Dir(fname)
-	os.MkdirAll(dname, 0775)
-	wr, err := os.Create(fname)
-	if err != nil {
-		return err
-	}
-	defer wr.Close()
-	_, err = io.Copy(wr, rd)
-	if err != nil {
-		return fmt.Errorf("%s, %s", fname, err)
-	}
-	return nil
-}
-
-// FSUpdate replaces a file on the file system with the contents fo byte array returning error.
-// It will truncate the file if necessary.
-func FSUpdate(s *Store, fname string, rd io.Reader) error {
-	wr, err := os.OpenFile(fname, os.O_RDWR|os.O_TRUNC, 0664)
-	if err != nil {
-		return err
-	}
-	defer wr.Close()
-	_, err = io.Copy(wr, rd)
-	if err != nil {
-		return fmt.Errorf("%s, %s", fname, err)
-	}
-	return nil
-}
-
-/* FIXME: EnvToOptions doesn't appear to be used anywhere in my code... should we deprecient this function? */
+/* FIXME: EnvToOptions doesn't appear to be used anywhere in my code... should we deprecient this function?
+the *Configure functions normally handle environment mapping if needed...
+*/
 
 // EnvToOptions given an environment map envvars to their option.
 func EnvToOptions(env []string) map[string]interface{} {
@@ -203,11 +124,11 @@ func Init(storeType int, options map[string]interface{}) (*Store, error) {
 	}
 	switch storeType {
 	case FS:
-		return FSConfigure(store)
+		return fsConfigure(store)
 	case S3:
-		return S3Configure(store)
+		return s3Configure(store)
 	case GS:
-		return GSConfigure(store)
+		return gsConfigure(store)
 	default:
 		return store, fmt.Errorf("storeType not supported")
 	}
@@ -230,6 +151,7 @@ func GetDefaultStore() *Store {
 			}
 		}
 	}
+	//FIXME: Shouldn't we be valling individual typed default functions per sType? (e.g. in fs.go, s3.go, gs.go)
 	switch sType {
 	case S3:
 		if s := os.Getenv("AWS_BUCKET"); s != "" {
@@ -255,61 +177,4 @@ func GetDefaultStore() *Store {
 
 	store, _ := Init(sType, opts)
 	return store
-}
-
-// WriteFilter writes a file after running apply a filter function to its' file pointer
-// E.g. composing a tarball before uploading results to S3
-func (store *Store) WriteFilter(finalPath string, processor func(fp *os.File) error) error {
-	// Open temp file as file point
-	tmp, err := ioutil.TempFile(os.TempDir(), path.Base(finalPath))
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmp.Name())
-	tmpName := tmp.Name()
-
-	// Envoke processor function
-	err = processor(tmp)
-	if err != nil {
-		return err
-	}
-	err = tmp.Close()
-	if err != nil {
-		return err
-	}
-
-	// Store the results
-	switch store.Type {
-	case S3:
-		// if store.Type == S3, upload temp filename with fname
-		if val, ok := store.Config["s3Service"]; ok == true {
-			s3Svc := val.(s3iface.S3API)
-			if _, ok := store.Config["AwsBucket"]; ok == false {
-				return fmt.Errorf("Bucket not defined for %s", finalPath)
-			}
-			bucketName := store.Config["AwsBucket"].(string)
-
-			rd, err := os.Open(tmpName)
-			if err != nil {
-				return err
-			}
-			defer rd.Close()
-
-			upParams := &s3manager.UploadInput{
-				Bucket: &bucketName,
-				Key:    &finalPath,
-				Body:   rd,
-			}
-			uploader := s3manager.NewUploaderWithClient(s3Svc)
-			_, err = uploader.Upload(upParams)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
-		return fmt.Errorf("s3Service not configured")
-	case GS:
-		return fmt.Errorf("gsService, attachments not implemented")
-	}
-	return os.Rename(tmpName, finalPath)
 }
