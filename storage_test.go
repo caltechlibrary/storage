@@ -162,9 +162,9 @@ func TestCloudStorage(t *testing.T) {
 			if s := os.Getenv("AWS_BUCKET"); s != "" {
 				options["AwsBucket"] = s
 			} else {
-				options["AwsBucket"] = "test"
+				t.Errorf("S3 buckets must be defined before running test")
+				t.FailNow()
 			}
-
 			if s := os.Getenv("AWS_SDK_LOAD_CONFIG"); s == "1" || strings.ToLower(s) == "true" {
 				options["AwsSDKLoadConfig"] = true
 				options["AwsSharedConfigEnabled"] = true

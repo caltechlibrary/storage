@@ -104,8 +104,6 @@ func EnvToOptions(env []string) map[string]interface{} {
 			switch kv[0] {
 			case "GOOGLE_PROJECT_ID":
 				opts["GoogleProjectID"] = kv[1]
-			case "GOOGLE_JSON_CONFIG":
-				opts["GoogleConfigFile"] = kv[1]
 			case "GOOGLE_BUCKET":
 				opts["GoogleBucket"] = kv[1]
 			}
@@ -174,9 +172,6 @@ func GetDefaultStore() *Store {
 		}
 		if s := os.Getenv("GOOGLE_BUCKECT"); s != "" {
 			opts["GoogleBucket"] = s
-		}
-		if s := os.Getenv("GOOGLE_JSON_CONFIG"); s != "" {
-			opts["GoogleConfigFile"] = s
 		}
 	}
 	store, _ := Init(sType, opts)

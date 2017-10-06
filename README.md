@@ -11,14 +11,14 @@ environment variables for this to work just like CRUD to the local file system.
 
 ```shell
     export AWS_SDK_LOAD_CONFIG=1
-    export AWS_BUCKET=bucket.example.edu
+    export AWS_BUCKET="bucket.example.edu"
 ```
 
 ## Google Cloud Setup
 
 ```shell
-    GS_JSON_CONFIG=/path/to/service-account-config.json
-    GS_BUCKET=bucket.example.edu
+    GOOGLE_PROJECT_ID="my-test-project"
+    GOOGLE_BUCKET="bucket.example.edu"
 ```
 
 ## Testing the package
@@ -40,7 +40,7 @@ Tests can be run with the Go test option in the repository directory.
 
 ## Package installation
 
-_storage_ is Go gettable
+_storage_ package is Go get-able
 
 ```
     go get -u github.com/caltechlibrary/storage
