@@ -146,7 +146,7 @@ func TestFS(t *testing.T) {
 }
 
 func TestCloudStorage(t *testing.T) {
-	storeType := FS
+	storeType := UNSUPPORTED
 	storeTypes := map[string]bool{
 		"S3": testS3,
 		"GS": testGS,
@@ -155,6 +155,8 @@ func TestCloudStorage(t *testing.T) {
 	for sLabel, ok := range storeTypes {
 		options := map[string]interface{}{}
 		switch {
+		case sLabel == "FS" && ok:
+			storeType = FS
 		case sLabel == "S3" && ok:
 			storeType = S3
 			if s := os.Getenv("AWS_BUCKET"); s != "" {
@@ -175,23 +177,19 @@ func TestCloudStorage(t *testing.T) {
 		case sLabel == "GS" && ok:
 			storeType = GS
 			if s := os.Getenv("GS_BUCKET"); s != "" {
-				options["GS_BUCKET"] = s
+				options["GSBucket"] = s
 			} else {
-				options["GS_BUCKET"] = "test"
+				options["GSBucket"] = "test"
 			}
-
 			if s := os.Getenv("GS_JSON_CONFIG"); s != "" {
-				options["GS_JSON_CONFIG"] = s
-			}
-			if s := os.Getenv("GS_BUCKET"); s != "" {
-				options["GS_BUCKET"] = s
+				options["GSConfigFile"] = s
 			}
 		default:
 			fmt.Printf("Skipping tests for %s\n", sLabel)
-			storeType = FS
+			storeType = UNSUPPORTED
 		}
 
-		if storeType != FS {
+		if storeType != UNSUPPORTED {
 
 			// Now run the tests on the configure storage type
 			store, err := Init(storeType, options)
@@ -244,7 +242,7 @@ func TestCloudStorage(t *testing.T) {
 			// Stat for Storage Type  non-object
 			fInfo, err = store.Stat(path.Dir(fname))
 			if err == nil {
-				t.Errorf("Expected err != nil, fInfo: %s for %s", fInfo, sLabel)
+				t.Errorf("Expected err != nil, fInfo: %+v for %s", fInfo, sLabel)
 				t.FailNow()
 			}
 

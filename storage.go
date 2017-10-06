@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
+	//"log"
 	"os"
 	"path"
 	"strings"
@@ -147,6 +147,8 @@ func FSUpdate(s *Store, fname string, rd io.Reader) error {
 	return nil
 }
 
+/* FIXME: EnvToOptions doesn't appear to be used anywhere in my code... should we deprecient this function? */
+
 // EnvToOptions given an environment map envvars to their option.
 func EnvToOptions(env []string) map[string]interface{} {
 	opts := map[string]interface{}{}
@@ -177,7 +179,13 @@ func EnvToOptions(env []string) map[string]interface{} {
 				opts["AwsBucket"] = kv[1]
 			}
 		case strings.HasPrefix(stmt, "GS_") && strings.Contains(stmt, "="):
-			log.Fatalf("EnvToOptions doesn't support gs:// yet.")
+			kv := strings.SplitN(stmt, "=", 2)
+			switch kv[0] {
+			case "GS_JSON_CONFIG":
+				opts["GSConfigFile"] = kv[1]
+			case "GS_BUCKET":
+				opts["GSBucket"] = kv[1]
+			}
 		}
 	}
 	return opts
@@ -237,7 +245,12 @@ func GetDefaultStore() *Store {
 			}
 		}
 	case GS:
-		log.Fatalf("gs:// storage support not implemented")
+		if s := os.Getenv("GS_BUCKECT"); s != "" {
+			opts["GSBucket"] = s
+		}
+		if s := os.Getenv("GS_JSON_CONFIG"); s != "" {
+			opts["GSConfigFile"] = s
+		}
 	}
 
 	store, _ := Init(sType, opts)
@@ -296,7 +309,7 @@ func (store *Store) WriteFilter(finalPath string, processor func(fp *os.File) er
 		}
 		return fmt.Errorf("s3Service not configured")
 	case GS:
-		return fmt.Errorf("gsService not implemented")
+		return fmt.Errorf("gsService, attachments not implemented")
 	}
 	return os.Rename(tmpName, finalPath)
 }
