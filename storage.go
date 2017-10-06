@@ -99,13 +99,15 @@ func EnvToOptions(env []string) map[string]interface{} {
 			case "AWS_BUCKET":
 				opts["AwsBucket"] = kv[1]
 			}
-		case strings.HasPrefix(stmt, "GS_") && strings.Contains(stmt, "="):
+		case (strings.HasPrefix(stmt, "GOOGLE_")) && strings.Contains(stmt, "="):
 			kv := strings.SplitN(stmt, "=", 2)
 			switch kv[0] {
-			case "GS_JSON_CONFIG":
-				opts["GSConfigFile"] = kv[1]
-			case "GS_BUCKET":
-				opts["GSBucket"] = kv[1]
+			case "GOOGLE_PROJECT_ID":
+				opts["GoogleProjectID"] = kv[1]
+			case "GOOGLE_JSON_CONFIG":
+				opts["GoogleConfigFile"] = kv[1]
+			case "GOOGLE_BUCKET":
+				opts["GoogleBucket"] = kv[1]
 			}
 		}
 	}
@@ -167,14 +169,16 @@ func GetDefaultStore() *Store {
 			}
 		}
 	case GS:
-		if s := os.Getenv("GS_BUCKECT"); s != "" {
-			opts["GSBucket"] = s
+		if s := os.Getenv("GOOGLE_PROJECT_ID"); s != "" {
+			opts["GoogleProjectID"] = s
 		}
-		if s := os.Getenv("GS_JSON_CONFIG"); s != "" {
-			opts["GSConfigFile"] = s
+		if s := os.Getenv("GOOGLE_BUCKECT"); s != "" {
+			opts["GoogleBucket"] = s
+		}
+		if s := os.Getenv("GOOGLE_JSON_CONFIG"); s != "" {
+			opts["GoogleConfigFile"] = s
 		}
 	}
-
 	store, _ := Init(sType, opts)
 	return store
 }

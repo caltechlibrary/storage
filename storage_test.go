@@ -176,13 +176,17 @@ func TestCloudStorage(t *testing.T) {
 			}
 		case sLabel == "GS" && ok:
 			storeType = GS
-			if s := os.Getenv("GS_BUCKET"); s != "" {
-				options["GSBucket"] = s
-			} else {
-				options["GSBucket"] = "test"
+			if s := os.Getenv("GOOGLE_PROJECT_ID"); s != "" {
+				options["GoogleProjectID"] = s
 			}
-			if s := os.Getenv("GS_JSON_CONFIG"); s != "" {
-				options["GSConfigFile"] = s
+			if s := os.Getenv("GOOGLE_BUCKET"); s != "" {
+				options["GoogleBucket"] = s
+			} else {
+				t.Errorf("Google Bucket not defined, must be defined before running test")
+				t.FailNow()
+			}
+			if s := os.Getenv("GOOGLE_JSON_CONFIG"); s != "" {
+				options["GoogleConfigFile"] = s
 			}
 		default:
 			fmt.Printf("Skipping tests for %s\n", sLabel)
@@ -225,11 +229,11 @@ func TestCloudStorage(t *testing.T) {
 			// Stat for Storage Type
 			fInfo, err := store.Stat(fname)
 			if err != nil {
-				t.Errorf("Stat error for %s, %s for ", fname, err, sLabel)
+				t.Errorf("Stat error for %s, %s for %s", fname, err, sLabel)
 				t.FailNow()
 			}
 			if fInfo == nil {
-				t.Errorf("Stat missing fInfo object %ss for %s", fname, sLabel)
+				t.Errorf("Stat missing info object %s for %s", fname, sLabel)
 				t.FailNow()
 			}
 			if fInfo.Name() != path.Base(fname) {

@@ -94,7 +94,7 @@ func (d *s3ObjectInfo) Sys() interface{} {
 	return nil
 }
 
-// S3Configure is a function that configures a storage.Store for use with AWS S3
+// s3Configure is a function that configures a storage.Store for use with AWS S3
 func s3Configure(store *Store) (*Store, error) {
 	var (
 		awsSDKLoadConfig       bool
