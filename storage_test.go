@@ -145,149 +145,168 @@ func TestFS(t *testing.T) {
 	}
 }
 
-func TestGS(t *testing.T) {
-	if testGS == true {
-		t.Errorf("TestGS() not implemented, Google Cloud Storage not implemented")
-	} else {
-		fmt.Println("Skipping TestGS (go test -gs)")
+func TestCloudStorage(t *testing.T) {
+	storeType := FS
+	storeTypes := map[string]bool{
+		"S3": testS3,
+		"GS": testGS,
 	}
-}
 
-func TestS3(t *testing.T) {
-	if testS3 == true {
+	for sLabel, ok := range storeTypes {
 		options := map[string]interface{}{}
+		switch {
+		case sLabel == "S3" && ok:
+			storeType = S3
+			if s := os.Getenv("AWS_BUCKET"); s != "" {
+				options["AwsBucket"] = s
+			} else {
+				options["AwsBucket"] = "test"
+			}
 
-		if s := os.Getenv("AWS_BUCKET"); s != "" {
-			options["AwsBucket"] = s
-		} else {
-			options["AwsBucket"] = "test"
+			if s := os.Getenv("AWS_SDK_LOAD_CONFIG"); s == "1" || strings.ToLower(s) == "true" {
+				options["AwsSDKLoadConfig"] = true
+				options["AwsSharedConfigEnabled"] = true
+				if t := os.Getenv("AWS_PROFILE"); t != "" {
+					options["AwsProfile"] = t
+				} else {
+					options["AwsProfile"] = "default"
+				}
+			}
+		case sLabel == "GS" && ok:
+			storeType = GS
+			if s := os.Getenv("GS_BUCKET"); s != "" {
+				options["GS_BUCKET"] = s
+			} else {
+				options["GS_BUCKET"] = "test"
+			}
+
+			if s := os.Getenv("GS_JSON_CONFIG"); s != "" {
+				options["GS_JSON_CONFIG"] = s
+			}
+			if s := os.Getenv("GS_BUCKET"); s != "" {
+				options["GS_BUCKET"] = s
+			}
+		default:
+			fmt.Printf("Skipping tests for %s\n", sLabel)
+			storeType = FS
 		}
 
-		if s := os.Getenv("AWS_SDK_LOAD_CONFIG"); s == "1" || strings.ToLower(s) == "true" {
-			options["AwsSDKLoadConfig"] = true
-			options["AwsSharedConfigEnabled"] = true
-			if t := os.Getenv("AWS_PROFILE"); t != "" {
-				options["AwsProfile"] = t
-			} else {
-				options["AwsProfile"] = "default"
+		if storeType != FS {
+
+			// Now run the tests on the configure storage type
+			store, err := Init(storeType, options)
+			if err != nil {
+				t.Errorf("%s for %s", err, sLabel)
+				t.FailNow()
+			}
+			if store == nil {
+				t.Errorf("store was nil for %s", sLabel)
+				t.FailNow()
+			}
+
+			// Create a directories  if needed
+			err = store.Mkdir("testdata", 0775)
+			if err != nil {
+				t.Errorf("Can't create testdata directory, %s for ", err, sLabel)
+				t.FailNow()
+			}
+			err = store.MkdirAll("testdata/subdir1/subdir2", 0775)
+			if err != nil {
+				t.Errorf("Can't create testdata/subdir1/subdir2 directory, %s for %s", err, sLabel)
+				t.FailNow()
+			}
+
+			fname := `testdata/helloworld.txt`
+			expected := []byte(`Hello World!!!`)
+			err = store.Create(fname, bytes.NewReader(expected))
+			if err != nil {
+				t.Errorf("%s for %s", err, sLabel)
+				t.FailNow()
+			}
+
+			// Stat for Storage Type
+			fInfo, err := store.Stat(fname)
+			if err != nil {
+				t.Errorf("Stat error for %s, %s for ", fname, err, sLabel)
+				t.FailNow()
+			}
+			if fInfo == nil {
+				t.Errorf("Stat missing fInfo object %ss for %s", fname, sLabel)
+				t.FailNow()
+			}
+			if fInfo.Name() != path.Base(fname) {
+				t.Errorf("expected %s, got %s for %s", path.Base(fname), fInfo.Name(), sLabel)
+			}
+			if fInfo.Size() != int64(len(expected)) {
+				t.Errorf("expected %d, got %d for %s", int64(len(expected)), fInfo.Size(), sLabel)
+			}
+
+			// Stat for Storage Type  non-object
+			fInfo, err = store.Stat(path.Dir(fname))
+			if err == nil {
+				t.Errorf("Expected err != nil, fInfo: %s for %s", fInfo, sLabel)
+				t.FailNow()
+			}
+
+			result, err := store.Read(fname)
+			if err != nil {
+				t.Errorf("%s for %s", err, sLabel)
+				t.FailNow()
+			}
+			if bytes.Compare(expected, result) != 0 {
+				t.Errorf("expected %q, got %q for %s", expected, result, sLabel)
+				t.FailNow()
+			}
+			expected = []byte(`Hello World.`)
+			err = store.Update(fname, bytes.NewReader(expected))
+			if err != nil {
+				t.Errorf("%s for %s", err, sLabel)
+				t.FailNow()
+			}
+			// Now read back the data and make sure it changed
+			result, err = store.Read(fname)
+			if err != nil {
+				t.Errorf("%s for %s", err, sLabel)
+				t.FailNow()
+			}
+			if bytes.Compare(expected, result) != 0 {
+				t.Errorf("expected %q, got %q for %s", expected, result, sLabel)
+				t.FailNow()
+			}
+
+			data := []byte("Hi There")
+			err = store.WriteFile(fname, data, 0664)
+			if err != nil {
+				t.Errorf("Error WriteFile(%q) %s for %s", fname, err, sLabel)
+				t.FailNow()
+			}
+			buf, err := store.ReadFile(fname)
+			if err != nil {
+				t.Errorf("Error ReadFile(%q) %s for %s", fname, err, sLabel)
+			}
+			if bytes.Compare(data, buf) != 0 {
+				t.Errorf("expected %q, got %q", expected, result, sLabel)
+				t.FailNow()
+			}
+
+			err = store.Delete(fname)
+			if err != nil {
+				t.Errorf("%s", err)
+				t.FailNow()
+			}
+
+			// Cleanup if successful so far
+			err = store.Remove("testdata/subdir1/subdir2")
+			if err != nil {
+				t.Errorf("Could not remove testdata/subdir1/subdir2s, %s", err)
+				t.FailNow()
+			}
+			err = store.RemoveAll("testdata")
+			if err != nil {
+				t.Errorf("Could not remove testdata and it's children, %s", err)
+				t.FailNow()
 			}
 		}
-
-		store, err := Init(S3, options)
-		if err != nil {
-			t.Errorf("%s", err)
-			t.FailNow()
-		}
-		if store == nil {
-			t.Errorf("store was nil")
-			t.FailNow()
-		}
-
-		// Create a directories  if needed
-		err = store.Mkdir("testdata", 0775)
-		if err != nil {
-			t.Errorf("Can't create testdata directory, %s", err)
-			t.FailNow()
-		}
-		err = store.MkdirAll("testdata/subdir1/subdir2", 0775)
-		if err != nil {
-			t.Errorf("Can't create testdata/subdir1/subdir2 directory, %s", err)
-			t.FailNow()
-		}
-
-		fname := `testdata/helloworld.txt`
-		expected := []byte(`Hello World!!!`)
-		err = store.Create(fname, bytes.NewReader(expected))
-		if err != nil {
-			t.Errorf("%s", err)
-			t.FailNow()
-		}
-
-		// Stat for S3
-		fInfo, err := store.Stat(fname)
-		if err != nil {
-			t.Errorf("Stat error for %s, %s", fname, err)
-			t.FailNow()
-		}
-		if fInfo == nil {
-			t.Errorf("Stat missing fInfo object %ss", fname)
-			t.FailNow()
-		}
-		if fInfo.Name() != path.Base(fname) {
-			t.Errorf("expected %s, got %s", path.Base(fname), fInfo.Name())
-		}
-		if fInfo.Size() != int64(len(expected)) {
-			t.Errorf("expected %d, got %d", int64(len(expected)), fInfo.Size())
-		}
-
-		// Stat for S3 non-object
-		fInfo, err = store.Stat(path.Dir(fname))
-		if err == nil {
-			t.Errorf("Expected err != nil, fInfo: %s\n", fInfo)
-			t.FailNow()
-		}
-
-		result, err := store.Read(fname)
-		if err != nil {
-			t.Errorf("%s", err)
-			t.FailNow()
-		}
-		if bytes.Compare(expected, result) != 0 {
-			t.Errorf("expected %q, got %q", expected, result)
-			t.FailNow()
-		}
-		expected = []byte(`Hello World.`)
-		err = store.Update(fname, bytes.NewReader(expected))
-		if err != nil {
-			t.Errorf("%s", err)
-			t.FailNow()
-		}
-		// Now read back the data and make sure it changed
-		result, err = store.Read(fname)
-		if err != nil {
-			t.Errorf("%s", err)
-			t.FailNow()
-		}
-		if bytes.Compare(expected, result) != 0 {
-			t.Errorf("expected %q, got %q", expected, result)
-			t.FailNow()
-		}
-
-		data := []byte("Hi There")
-		err = store.WriteFile(fname, data, 0664)
-		if err != nil {
-			t.Errorf("Error WriteFile(%q) %s", fname, err)
-			t.FailNow()
-		}
-		buf, err := store.ReadFile(fname)
-		if err != nil {
-			t.Errorf("Error ReadFile(%q) %s", fname, err)
-			t.FailNow()
-		}
-		if bytes.Compare(data, buf) != 0 {
-			t.Errorf("expected %q, got %q", expected, result)
-			t.FailNow()
-		}
-
-		err = store.Delete(fname)
-		if err != nil {
-			t.Errorf("%s", err)
-			t.FailNow()
-		}
-
-		// Cleanup if successful so far
-		err = store.Remove("testdata/subdir1/subdir2")
-		if err != nil {
-			t.Errorf("Could not remove testdata/subdir1/subdir2s, %s", err)
-			t.FailNow()
-		}
-		err = store.RemoveAll("testdata")
-		if err != nil {
-			t.Errorf("Could not remove testdata and it's children, %s", err)
-			t.FailNow()
-		}
-	} else {
-		fmt.Println("Skipping TestS3 (go test -s3)")
 	}
 }
 
