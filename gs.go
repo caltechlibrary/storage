@@ -5,11 +5,13 @@ package storage
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 
 	// Google Cloud SDK/API
 	gstorage "cloud.google.com/go/storage"
@@ -164,7 +166,95 @@ func gsRemoveAll(s *Store, prefixName string) error {
 	return fmt.Errorf("GSRemoveAll() not implemented")
 }
 
+// Create a gsObjectInfo struct from response Contents return by ListObjects on Google Cloud Storage
+func gsToObjectInfo(o *gstorage.ObjectAttrs) *gsObjectInfo {
+	doc := new(gsObjectInfo)
+	doc.Info = map[string]interface{}{}
+	//Q: What fields Do I need from gstorage.ObjectAttrs that can be combined to be an ETag?
+	//doc.Info["ETag"] = o.ETag
+	doc.Info["Key"] = o.Name
+	doc.Info["LastModified"] = o.Updated
+	doc.Info["Owner"] = o.Owner
+	doc.Info["Size"] = o.Size
+	doc.Info["StorageClass"] = o.StorageClass
+	//Q: What other attributes should I pass through?
+	return doc
+}
+
+// String returns a string representation of the object reported by ListObjects
+func (d *gsObjectInfo) String() string {
+	src, err := json.Marshal(d.Info)
+	if err != nil {
+		return fmt.Sprintf("%+v", d.Info)
+	}
+	return string(src)
+}
+
+// Name returns the Key after evaluating with path.Base() so we match os.FileInfo.Name()
+// or an empty string
+func (d *gsObjectInfo) Name() string {
+	if val, ok := d.Info["Key"]; ok == true {
+		p := val.(*string)
+		return path.Base(*p)
+	}
+	return ""
+}
+
+// Size returns the size of an object reported by listing the object
+// Or zero as a int64 if not available
+func (d *gsObjectInfo) Size() int64 {
+	if val, ok := d.Info["Size"]; ok == true {
+		size := val.(*int64)
+		return *size
+	}
+	return int64(0)
+}
+
+// ModTime returns the value of LastModied reported by listing the object
+// or an empty Time object if not available
+func (d *gsObjectInfo) ModTime() time.Time {
+	if val, ok := d.Info["LastModified"]; ok == true {
+		t := val.(*time.Time)
+		return *t
+	}
+	return time.Time{}
+}
+
+// IsDir returns false, Google Cloud Storage doesn't support the concept of directories only keys in buckets
+func (d *gsObjectInfo) IsDir() bool {
+	return false
+}
+
+// Sys() returns an system dependant interface...
+func (d *gsObjectInfo) Sys() interface{} {
+	return nil
+}
+
+// Mode returns the file mode but this doens't map to Google Cloud Storage so we return zero always
+func (d *gsObjectInfo) Mode() os.FileMode {
+	return os.FileMode(0)
+}
+
 // GSStat takes a file name and returns a FileInfo and error value
 func gsStat(s *Store, fname string) (os.FileInfo, error) {
-	return nil, fmt.Errorf("GSStat() not implemented")
+	if val, ok := s.Config["gsService"]; ok == true {
+		gsSrv := val.(*gstorage.Client)
+		val, ok = s.Config["GoogleBucket"]
+		if ok == false {
+			return nil, fmt.Errorf("gsService not configured")
+		}
+		bucketName := val.(string)
+		ctx := context.Background()
+
+		o := gsSrv.Bucket(bucketName).Object(fname)
+		attrs, err := o.Attrs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		// See https://godoc.org/cloud.google.com/go/storage#ObjectAttrs for attribute mapping
+		oInfo := gsToObjectInfo(attrs)
+		return oInfo, nil
+
+	}
+	return nil, fmt.Errorf("gsService not configured")
 }
