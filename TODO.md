@@ -15,6 +15,7 @@
 + [ ] add support for Dropbox
 + [ ] add support for Google Drive
 + [ ] add support for Box
++ [ ] add support for [Minio](https://minio.io/)
 
 ## Completed
 
