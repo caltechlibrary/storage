@@ -17,7 +17,6 @@ environment variables for this to work just like CRUD to the local file system.
 ## Google Cloud Setup
 
 ```shell
-    GOOGLE_PROJECT_ID="my-test-project"
     GOOGLE_BUCKET="bucket.example.edu"
 ```
 
