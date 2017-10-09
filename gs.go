@@ -194,15 +194,16 @@ func gsRemoveAll(s *Store, prefixName string) error {
 		for {
 			attrs, err := o.Next()
 			if err != nil && err != iterator.Done {
-				// TODO: Handle error.
 				return fmt.Errorf("Can't get next object, %s")
 			}
 			if err == iterator.Done {
 				break
 			}
-			if err := bucket.Object(attrs.Name).Delete(ctx); err != nil {
-				// TODO: Handle error.
-				errors = append(errors, fmt.Sprintf("%s, %s", attrs.Name, err))
+			// Make sure we're at the right level of the pseudo path before we do a delete
+			if strings.HasPrefix(attrs.Name, prefixName) {
+				if err := bucket.Object(attrs.Name).Delete(ctx); err != nil {
+					errors = append(errors, fmt.Sprintf("%s, %s", attrs.Name, err))
+				}
 			}
 		}
 		if len(errors) > 0 {
