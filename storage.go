@@ -66,10 +66,6 @@ type Store struct {
 	WriteFilter func(string, func(*os.File) error) error
 }
 
-/* FIXME: EnvToOptions doesn't appear to be used anywhere in my code... should we deprecient this function?
-the *Configure functions normally handle environment mapping if needed...
-*/
-
 // EnvToOptions given an environment map envvars to their option.
 func EnvToOptions(env []string) map[string]interface{} {
 	opts := map[string]interface{}{}
@@ -102,8 +98,6 @@ func EnvToOptions(env []string) map[string]interface{} {
 		case (strings.HasPrefix(stmt, "GOOGLE_")) && strings.Contains(stmt, "="):
 			kv := strings.SplitN(stmt, "=", 2)
 			switch kv[0] {
-			case "GOOGLE_PROJECT_ID":
-				opts["GoogleProjectID"] = kv[1]
 			case "GOOGLE_BUCKET":
 				opts["GoogleBucket"] = kv[1]
 			}

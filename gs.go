@@ -81,7 +81,7 @@ func gsConfigure(store *Store) (*Store, error) {
 	// Extended options for datatools and dataset
 
 	// WriteFilter writes a file after running apply a filter function to its' file pointer
-	// E.g. composing a tarball before uploading results to S3
+	// E.g. composing a tarball before uploading results to S3 or GS
 	store.WriteFilter = func(finalPath string, processor func(*os.File) error) error {
 		// Open temp file as file point
 		tmp, err := ioutil.TempFile(os.TempDir(), path.Base(finalPath))
@@ -100,9 +100,12 @@ func gsConfigure(store *Store) (*Store, error) {
 		if err != nil {
 			return err
 		}
-
 		// OK now we're ready to upload temp filename to final path
-		return fmt.Errorf("WriteFilter for gs:// not fully implemented")
+		buf, err := ioutil.ReadFile(tmpName)
+		if err != nil {
+			return err
+		}
+		return gsCreate(store, finalPath, bytes.NewReader(buf))
 	}
 
 	// Now the store is setup and we're ready to return

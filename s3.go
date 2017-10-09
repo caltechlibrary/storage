@@ -210,34 +210,11 @@ func s3Configure(store *Store) (*Store, error) {
 		}
 
 		// Now we're ready to upload results
-
-		// if store.Type == S3, upload temp filename with fname
-		if val, ok := store.Config["s3Service"]; ok == true {
-			s3Svc := val.(s3iface.S3API)
-			if _, ok := store.Config["AwsBucket"]; ok == false {
-				return fmt.Errorf("Bucket not defined for %s", finalPath)
-			}
-			bucketName := store.Config["AwsBucket"].(string)
-
-			rd, err := os.Open(tmpName)
-			if err != nil {
-				return err
-			}
-			defer rd.Close()
-
-			upParams := &s3manager.UploadInput{
-				Bucket: &bucketName,
-				Key:    &finalPath,
-				Body:   rd,
-			}
-			uploader := s3manager.NewUploaderWithClient(s3Svc)
-			_, err = uploader.Upload(upParams)
-			if err != nil {
-				return err
-			}
-			return nil
+		buf, err := ioutil.ReadFile(tmpName)
+		if err != nil {
+			return err
 		}
-		return fmt.Errorf("s3Service not configured")
+		return s3Create(store, finalPath, bytes.NewReader(buf))
 	}
 
 	// Now the store is setup and we're ready to return
