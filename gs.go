@@ -11,11 +11,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	// Google Cloud SDK/API
 	gstorage "cloud.google.com/go/storage"
 	"golang.org/x/net/context"
+	"google.golang.org/api/iterator"
 )
 
 // gsObjectInfo is a map so we can create a os.FileInfo compatible map from GS objects
@@ -158,12 +160,54 @@ func gsRead(s *Store, fname string) ([]byte, error) {
 
 // GSRemove takes a full path and returns an error if delete not successful
 func gsRemove(s *Store, fname string) error {
-	return fmt.Errorf("GSRemove() not implemented")
+	if val, ok := s.Config["gsService"]; ok == true {
+		gsSrv := val.(*gstorage.Client)
+		val, ok = s.Config["GoogleBucket"]
+		if ok == false {
+			return fmt.Errorf("gsService not configured")
+		}
+		bucketName := val.(string)
+		ctx := context.Background()
+
+		return gsSrv.Bucket(bucketName).Object(fname).Delete(ctx)
+	}
+	return fmt.Errorf("gsService not configured")
 }
 
 // GSRemoveAll takes a path prefix and delete matching items (up to 1000) and returns an error if delete not successful
 func gsRemoveAll(s *Store, prefixName string) error {
-	return fmt.Errorf("GSRemoveAll() not implemented")
+	var errors []string
+	if val, ok := s.Config["gsService"]; ok == true {
+		gsSrv := val.(*gstorage.Client)
+		val, ok = s.Config["GoogleBucket"]
+		if ok == false {
+			return fmt.Errorf("gsService not configured")
+		}
+		bucketName := val.(string)
+		ctx := context.Background()
+
+		bucket := gsSrv.Bucket(bucketName)
+		o := bucket.Objects(ctx, nil)
+		for {
+			attrs, err := o.Next()
+			if err != nil && err != iterator.Done {
+				// TODO: Handle error.
+				return fmt.Errorf("Can't get next object, %s")
+			}
+			if err == iterator.Done {
+				break
+			}
+			if err := bucket.Object(attrs.Name).Delete(ctx); err != nil {
+				// TODO: Handle error.
+				errors = append(errors, fmt.Sprintf("%s, %s", attrs.Name, err))
+			}
+		}
+		if len(errors) > 0 {
+			return fmt.Errorf("%s", strings.Join(errors, "\n"))
+		}
+		return nil
+	}
+	return fmt.Errorf("gsService not configured")
 }
 
 // Create a gsObjectInfo struct from response Contents return by ListObjects on Google Cloud Storage
@@ -194,8 +238,8 @@ func (d *gsObjectInfo) String() string {
 // or an empty string
 func (d *gsObjectInfo) Name() string {
 	if val, ok := d.Info["Key"]; ok == true {
-		p := val.(*string)
-		return path.Base(*p)
+		p := val.(string)
+		return path.Base(p)
 	}
 	return ""
 }
@@ -204,8 +248,8 @@ func (d *gsObjectInfo) Name() string {
 // Or zero as a int64 if not available
 func (d *gsObjectInfo) Size() int64 {
 	if val, ok := d.Info["Size"]; ok == true {
-		size := val.(*int64)
-		return *size
+		size := val.(int64)
+		return size
 	}
 	return int64(0)
 }

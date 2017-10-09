@@ -136,12 +136,10 @@ func TestFS(t *testing.T) {
 	err = store.Remove("testdata/subdir1/subdir2")
 	if err != nil {
 		t.Errorf("Could not remove testdata/subdir1/subdir2s, %s", err)
-		t.FailNow()
 	}
 	err = store.RemoveAll("testdata")
 	if err != nil {
 		t.Errorf("Could not remove testdata and it's children, %s", err)
-		t.FailNow()
 	}
 }
 
@@ -206,7 +204,7 @@ func TestCloudStorage(t *testing.T) {
 				t.FailNow()
 			}
 
-			// Create a directories  if needed
+			// Create a directories if needed (s3://, gs:// have no concept of directory so these should NEVER fail)
 			err = store.Mkdir("testdata", 0775)
 			if err != nil {
 				t.Errorf("Can't create testdata directory, %s for ", err, sLabel)
@@ -291,22 +289,24 @@ func TestCloudStorage(t *testing.T) {
 				t.FailNow()
 			}
 
-			err = store.Delete(fname)
-			if err != nil {
-				t.Errorf("%s", err)
-				t.FailNow()
+			// Write a stub file in subdir2 since s3:// and gs:// don't actually make sub-directories
+			if err := store.WriteFile("testdata/subdir1/subdir2/hello.txt", data, 0664); err != nil {
+				t.Errorf("failed to write test data, %s", err)
 			}
 
 			// Cleanup if successful so far
-			err = store.Remove("testdata/subdir1/subdir2")
+			err = store.Remove(fname)
 			if err != nil {
-				t.Errorf("Could not remove testdata/subdir1/subdir2s, %s", err)
+				t.Errorf("delete %s, %s", fname, err)
 				t.FailNow()
+			}
+			err = store.Remove("testdata/subdir1/subdir2/hello.txt")
+			if err != nil {
+				t.Errorf("Could not remove testdata/subdir1/subdir2s/hello.txt, %s", err)
 			}
 			err = store.RemoveAll("testdata")
 			if err != nil {
 				t.Errorf("Could not remove testdata and it's children, %s", err)
-				t.FailNow()
 			}
 		}
 	}
