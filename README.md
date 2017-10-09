@@ -17,7 +17,7 @@ environment variables for this to work just like CRUD to the local file system.
 ## Google Cloud Setup
 
 ```shell
-    GOOGLE_BUCKET="bucket.example.edu"
+    export GOOGLE_BUCKET="bucket.example.edu"
 ```
 
 ## Testing the package
