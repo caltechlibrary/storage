@@ -27,7 +27,7 @@ import (
 
 const (
 	// Version of package
-	Version = "v0.0.1"
+	Version = "v0.0.2"
 
 	// UNSUPPORTED is used if Init fails the and a non-nil Store struck gets returned.
 	UNSUPPORTED = iota
