@@ -74,7 +74,25 @@ func fsConfigure(store *Store) (*Store, error) {
 			return err
 		}
 		// Now we're ready to but the processed file in its place
-		return os.Rename(tmpName, finalPath)
+		if err := os.Rename(tmpName, finalPath); err != nil {
+			// If rename files try copy then delete.
+			in, err := os.Open(tmpName)
+			if err != nil {
+				return err
+			}
+			defer in.Close()
+			out, err := os.Create(finalPath)
+			if err != nil {
+				return err
+			}
+			defer out.Close()
+			_, err = io.Copy(out, in)
+			if err != nil {
+				return err
+			}
+			return os.Remove(tmpName)
+		}
+		return nil
 	}
 
 	// Now the store is setup and we're ready to return
