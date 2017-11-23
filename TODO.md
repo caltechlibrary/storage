@@ -6,6 +6,7 @@
 
 ## Someday, Maybe
 
++ [ ] Review https://github.com/sajari/storage, see how hard it would be to add S3 support or add support for similar systems in our storage
 + [ ] CopyFile
 + [ ] ListDir (e.g. list prefixed contents for gs:// and s3://) 
 + [ ] add support for our NAS
