@@ -187,7 +187,7 @@ func s3Configure(store *Store) (*Store, error) {
 	}
 	store.ReadDir = func(fname string) ([]os.FileInfo, error) {
 		//NOTE: S3 lacks the concept of directories, FIXME: Need to list paths with same prefix
-		return nil, nil
+		return nil, fmt.Errorf("Not implemented for S3 Storage")
 	}
 
 	// Extended options for datatools and dataset
