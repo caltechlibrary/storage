@@ -186,8 +186,8 @@ func s3Configure(store *Store) (*Store, error) {
 		return s3Create(store, fname, bytes.NewBuffer(data))
 	}
 	store.ReadDir = func(fname string) ([]os.FileInfo, error) {
-		//NOTE: S3 lacks the concept of directories, FIXME: Need to list paths with same prefix
-		return nil, fmt.Errorf("Not implemented for S3 Storage")
+		//NOTE: S3 lacks the concept of directories, this returns a list paths with same prefix
+		return s3ReadDir(store, fname)
 	}
 
 	// Extended options for datatools and dataset
@@ -297,6 +297,32 @@ func s3Read(s *Store, fname string) ([]byte, error) {
 			return nil, err
 		}
 		return buf.Bytes(), nil
+	}
+	return nil, fmt.Errorf("s3Service not configured")
+}
+
+// s3ReadDir takes a full path and returns an array of FileInfo structs
+func s3ReadDir(s *Store, fname string) ([]os.FileInfo, error) {
+	if val, ok := s.Config["s3Service"]; ok == true {
+		s3Svc := val.(s3iface.S3API)
+		if _, ok := s.Config["AwsBucket"]; ok == false {
+			return nil, fmt.Errorf("Bucket not defined for %s", fname)
+		}
+		bucketName := s.Config["AwsBucket"].(string)
+		//FIXME: This should iterate over pages, not just the first 1000
+		resp, err := s3Svc.ListObjects(&s3.ListObjectsInput{
+			Bucket: &bucketName,
+			Prefix: aws.String(fname),
+		})
+		if err != nil {
+			return nil, err
+		}
+		results := []os.FileInfo{}
+		for _, objInfo := range resp.Contents {
+			info := s3ToObjectInfo(objInfo)
+			results = append(results, info)
+		}
+		return results, nil
 	}
 	return nil, fmt.Errorf("s3Service not configured")
 }
