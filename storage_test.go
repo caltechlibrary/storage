@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -207,7 +208,7 @@ func TestCloudStorage(t *testing.T) {
 			// Create a directories if needed (s3://, gs:// have no concept of directory so these should NEVER fail)
 			err = store.Mkdir("testdata", 0775)
 			if err != nil {
-				t.Errorf("Can't create testdata directory, %s for ", err, sLabel)
+				t.Errorf("Can't create testdata directory, %s for %s", err, sLabel)
 				t.FailNow()
 			}
 			err = store.MkdirAll("testdata/subdir1/subdir2", 0775)
@@ -285,7 +286,7 @@ func TestCloudStorage(t *testing.T) {
 				t.Errorf("Error ReadFile(%q) %s for %s", fname, err, sLabel)
 			}
 			if bytes.Compare(data, buf) != 0 {
-				t.Errorf("expected %q, got %q", expected, result, sLabel)
+				t.Errorf("expected %q, got %q for %s", expected, result, sLabel)
 				t.FailNow()
 			}
 
@@ -351,31 +352,65 @@ func TestGetDefaultStore(t *testing.T) {
 }
 
 func TestWriteFilter(t *testing.T) {
-	store := GetDefaultStore()
+	store, err := Init(FS, nil) //GetDefaultStore()
+	if err != nil {
+		t.Errorf("Init failed, %s", err)
+		t.FailNow()
+	}
 	start := 0
 	finish := 9
-	if store.Type == FS {
-		_ = os.Mkdir("testdata", 0775)
-		defer os.RemoveAll("testdata")
-	}
-	err := store.WriteFilter("testdata/after-test.txt", func(fp *os.File) error {
+	store.Mkdir("testdata", 0775)
+	err = store.WriteFilter("testdata/after-test.txt", func(fp *os.File) error {
 		for i := start; i <= finish; i++ {
 			fmt.Fprintf(fp, "%d\n", i)
 		}
 		return nil
 	})
 	if err != nil {
-		t.Errorf("%s", err)
+		t.Errorf("WriteFilter, %s", err)
 		t.FailNow()
 	}
 	data, err := store.ReadFile("testdata/after-test.txt")
 	if err != nil {
-		t.Errorf("%s", err)
+		t.Errorf("ReadFile %s", err)
 		t.FailNow()
 	}
+	ok := true
 	for i, line := range strings.Split(string(data), "\n") {
 		if i <= finish && fmt.Sprintf("%d", i) != line {
 			t.Errorf("mismatch at line %d, expected %d, got %s", i, i, line)
+			ok = false
+		}
+	}
+	if ok {
+		store.RemoveAll("testdata")
+	}
+}
+
+func TestReadDir(t *testing.T) {
+	store, err := Init(FS, nil)
+	if err != nil {
+		t.Errorf("failed to init store, %s", err)
+		t.FailNow()
+	}
+	expectedDir, err := ioutil.ReadDir(".")
+	if err != nil {
+		t.Errorf("Can't read ./ for testing, %s", err)
+		t.FailNow()
+	}
+	testDir, err := store.ReadDir(".")
+	if err != nil {
+		t.Errorf("store.ReadDir(%q), %s", "./", err)
+		t.FailNow()
+	}
+	if len(expectedDir) != len(testDir) {
+		t.Errorf("Mismatch in test (%d) and expected (%d) directory counts", len(expectedDir), len(testDir))
+	}
+	for i, expected := range expectedDir {
+		if i < len(testDir) {
+			if expected.Name() != testDir[i].Name() {
+				t.Errorf("expected (%d) %q, got %q", i, expected.Name(), testDir[i].Name())
+			}
 		}
 	}
 }

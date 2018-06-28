@@ -185,6 +185,10 @@ func s3Configure(store *Store) (*Store, error) {
 	store.WriteFile = func(fname string, data []byte, perm os.FileMode) error {
 		return s3Create(store, fname, bytes.NewBuffer(data))
 	}
+	store.ReadDir = func(fname string) ([]os.FileInfo, error) {
+		//NOTE: S3 lacks the concept of directories, FIXME: Need to list paths with same prefix
+		return nil, nil
+	}
 
 	// Extended options for datatools and dataset
 

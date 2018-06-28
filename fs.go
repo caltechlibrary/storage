@@ -51,6 +51,9 @@ func fsConfigure(store *Store) (*Store, error) {
 	store.WriteFile = func(fname string, data []byte, perm os.FileMode) error {
 		return ioutil.WriteFile(fname, data, perm)
 	}
+	store.ReadDir = func(fname string) ([]os.FileInfo, error) {
+		return ioutil.ReadDir(fname)
+	}
 
 	// Extended ops for datatools and dataset
 

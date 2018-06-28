@@ -27,7 +27,7 @@ import (
 
 const (
 	// Version of package
-	Version = `v0.0.2`
+	Version = `v0.0.3`
 
 	// UNSUPPORTED is used if Init fails the and a non-nil Store struck gets returned.
 	UNSUPPORTED = iota
@@ -60,6 +60,7 @@ type Store struct {
 	RemoveAll func(string) error
 	ReadFile  func(string) ([]byte, error)
 	WriteFile func(string, []byte, os.FileMode) error
+	ReadDir   func(string) ([]os.FileInfo, error)
 
 	// Extended operations for datatools and dataset
 	// Writefilter takes a final path and a processing function which accepts the temp pointer
@@ -145,7 +146,7 @@ func GetDefaultStore() *Store {
 			}
 		}
 	}
-	//FIXME: Shouldn't we be valling individual typed default functions per sType? (e.g. in fs.go, s3.go, gs.go)
+	//FIXME: Shouldn't we be calling individual typed default functions per sType? (e.g. in fs.go, s3.go, gs.go)
 	switch sType {
 	case S3:
 		if s := os.Getenv("AWS_BUCKET"); s != "" {

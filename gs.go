@@ -77,6 +77,10 @@ func gsConfigure(store *Store) (*Store, error) {
 	store.WriteFile = func(fname string, data []byte, perm os.FileMode) error {
 		return gsCreate(store, fname, bytes.NewBuffer(data))
 	}
+	store.ReadDir = func(fname string) ([]os.FileInfo, error) {
+		//NOTE: GS lacks the concept of directories, FIXME: need to list paths with same prefix
+		return nil, nil
+	}
 
 	// Extended options for datatools and dataset
 
@@ -194,7 +198,7 @@ func gsRemoveAll(s *Store, prefixName string) error {
 		for {
 			attrs, err := o.Next()
 			if err != nil && err != iterator.Done {
-				return fmt.Errorf("Can't get next object, %s")
+				return fmt.Errorf("Can't get next object, %s", err)
 			}
 			if err == iterator.Done {
 				break

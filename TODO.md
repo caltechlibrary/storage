@@ -3,12 +3,11 @@
 
 ## Next
 
++ [ ] Add support for Readdir()
 
 ## Someday, Maybe
 
-+ [ ] Review https://github.com/sajari/storage, see how hard it would be to add S3 support or add support for similar systems in our storage
 + [ ] CopyFile
-+ [ ] ListDir (e.g. list prefixed contents for gs:// and s3://) 
 + [ ] add support for our NAS
 + [ ] add support for Dropbox
 + [ ] add support for Google Drive
@@ -17,6 +16,7 @@
 
 ## Completed
 
++ [x] Review https://github.com/sajari/storage, see how hard it would be to add S3 support or add support for similar systems in our storage
 + [x] Add support for Google Cloud Storage with gs:// URL prefix in config environment
 + [x] WriteFileAfter - create a temp file, apply a function on the file pointer, then move to final location (e.g. local FS or S3)
     + finalName (path to final distination)
