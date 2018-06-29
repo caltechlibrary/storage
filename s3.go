@@ -309,19 +309,20 @@ func s3ReadDir(s *Store, fname string) ([]os.FileInfo, error) {
 			return nil, fmt.Errorf("Bucket not defined for %s", fname)
 		}
 		bucketName := s.Config["AwsBucket"].(string)
-		//FIXME: This should iterate over pages, not just the first 1000
-		resp, err := s3Svc.ListObjects(&s3.ListObjectsInput{
-			Bucket: &bucketName,
+		params := &s3.ListObjectsInput{
+			Bucket: aws.String(bucketName),
 			Prefix: aws.String(fname),
-		})
-		if err != nil {
-			return nil, err
 		}
+		pageNo := 0
 		results := []os.FileInfo{}
-		for _, objInfo := range resp.Contents {
-			info := s3ToObjectInfo(objInfo)
-			results = append(results, info)
-		}
+		s3Svc.ListObjectsPages(params, func(page *s3.ListObjectsOutput, nextPage bool) bool {
+			pageNo++
+			for _, objInfo := range page.Contents {
+				info := s3ToObjectInfo(objInfo)
+				results = append(results, info)
+			}
+			return true
+		})
 		return results, nil
 	}
 	return nil, fmt.Errorf("s3Service not configured")
