@@ -12,5 +12,5 @@ export AWS_BUCKET="my-test-bucket.library.example.edu"
 #
 # Google Cloud Storage test setup example
 #
-export GOOGLE_BUCKET="my-test-bucket.library.example.edu"
-
+export GOOGLE_BUCKET="my-test-bucket"
+export GOOGLE_JSON_CONFIG="$HOME/Downloads/client_secret.json"

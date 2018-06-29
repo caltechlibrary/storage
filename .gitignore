@@ -26,3 +26,5 @@ _testmain.go
 # Project specific
 *.bash
 *.swp
+*_secret.json
+etc/*

@@ -3,16 +3,20 @@
 
 ## Next
 
-+ [ ] Add support for Readdir()
++ [ ] Add support for ReadDir() 
+    + [x] for FS
+    + [x] for S3
+    + [ ] for GS
 
 ## Someday, Maybe
 
++ [ ] Migrate gs.go, fs.go, s3.go into their own submodules
 + [ ] CopyFile
 + [ ] add support for our NAS
 + [ ] add support for Dropbox
 + [ ] add support for Google Drive
 + [ ] add support for Box
-+ [ ] add support for [Minio](https://minio.io/)
++ [ ] Integrate or replace storage package with [Minio](https://minio.io/)
 
 ## Completed
 
@@ -28,5 +32,4 @@
 + [x] MkdirAll
 + [x] ReadFile
 + [x] WriteFile
-
 

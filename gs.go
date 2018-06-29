@@ -78,8 +78,8 @@ func gsConfigure(store *Store) (*Store, error) {
 		return gsCreate(store, fname, bytes.NewBuffer(data))
 	}
 	store.ReadDir = func(fname string) ([]os.FileInfo, error) {
-		//NOTE: GS lacks the concept of directories, FIXME: need to list paths with same prefix
-		return nil, fmt.Errorf("Not implemented for Google Cloud Storage")
+		//NOTE: GS lacks the concept of directories, fname will be used to return to list paths with prefix
+		return gsReadDir(store, fname)
 	}
 
 	// Extended options for datatools and dataset
@@ -307,6 +307,44 @@ func gsStat(s *Store, fname string) (os.FileInfo, error) {
 		oInfo := gsToObjectInfo(attrs)
 		return oInfo, nil
 
+	}
+	return nil, fmt.Errorf("gsService not configured")
+}
+
+// gsReadDir takes a path prefix and returns a list an array of os.FileInfo
+func gsReadDir(s *Store, prefixName string) ([]os.FileInfo, error) {
+	var errors []string
+	if val, ok := s.Config["gsService"]; ok == true {
+		gsSrv := val.(*gstorage.Client)
+		val, ok = s.Config["GoogleBucket"]
+		if ok == false {
+			return nil, fmt.Errorf("gsService not configured")
+		}
+		bucketName := val.(string)
+		ctx := context.Background()
+
+		bucket := gsSrv.Bucket(bucketName)
+		query := new(gstorage.Query)
+		if prefixName != "" {
+			query.Prefix = prefixName
+		}
+		o := bucket.Objects(ctx, query)
+		results := []os.FileInfo{}
+		for {
+			attrs, err := o.Next()
+			if err != nil && err != iterator.Done {
+				return nil, fmt.Errorf("Can't get next object, %s", err)
+			}
+			if err == iterator.Done {
+				break
+			}
+			info := gsToObjectInfo(attrs)
+			results = append(results, info)
+		}
+		if len(errors) > 0 {
+			return results, fmt.Errorf("%s", strings.Join(errors, "\n"))
+		}
+		return results, nil
 	}
 	return nil, fmt.Errorf("gsService not configured")
 }
