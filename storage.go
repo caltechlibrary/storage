@@ -172,3 +172,21 @@ func GetDefaultStore() *Store {
 	store, _ := Init(sType, opts)
 	return store
 }
+
+// StorageType takes a path or URL and makes a guess
+// as to which storage system is being referenced.
+// Returns the integer value of the const identifying the type.
+func StorageType(p string) int {
+	s := strings.ToLower(p)
+	if strings.Contains(p, "://") {
+		switch {
+		case strings.HasPrefix(s, "s3://"):
+			return S3
+		case strings.HasPrefix(s, "gs://"):
+			return GS
+		default:
+			return UNSUPPORTED
+		}
+	}
+	return FS
+}

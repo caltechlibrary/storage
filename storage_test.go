@@ -415,6 +415,37 @@ func TestReadDir(t *testing.T) {
 	}
 }
 
+// Check to make sure StorageType is detectable from provided paths
+func TestStorageType(t *testing.T) {
+	m := map[string]int{
+		"/my/stuff":              FS,
+		"stuff":                  FS,
+		"foo.txt":                FS,
+		"s3://example.edu/stuff": S3,
+		"gs://example.edu/stuff": GS,
+		"eworiwer://example.io/": UNSUPPORTED,
+		"https://example.io":     UNSUPPORTED,
+		"http://erwerew":         UNSUPPORTED,
+		"gopher://ewreweww":      UNSUPPORTED,
+	}
+	for p, expected := range m {
+		if r := StorageType(p); r != expected {
+			switch expected {
+			case FS:
+				t.Errorf("expected FS (%d), got %d", expected, r)
+			case S3:
+				t.Errorf("expected S3 (%d), got %d", expected, r)
+			case GS:
+				t.Errorf("expected GS (%d), got %d", expected, r)
+			case UNSUPPORTED:
+				t.Errorf("expected UNSUPPORTED (%d), got %d", expected, r)
+			default:
+				t.Errorf("expected %d, got %d", expected, r)
+			}
+		}
+	}
+}
+
 /*
 func TestCreateOnExistingS3(t *testing.T) {
 	data := map[string]int{
