@@ -323,7 +323,11 @@ func TestGetDefaultStore(t *testing.T) {
 			os.Unsetenv(kv[0])
 		}
 	}
-	store := GetDefaultStore()
+	store, err := GetDefaultStore()
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
 	if store.Type == UNSUPPORTED {
 		t.Errorf("Expected FS type, got UNSUPPORTED")
 		t.FailNow()
@@ -339,7 +343,11 @@ func TestGetDefaultStore(t *testing.T) {
 		}
 	}
 	if testS3 == true {
-		store = GetDefaultStore()
+		store, err = GetDefaultStore()
+		if err != nil {
+			t.Error(err)
+			t.FailNow()
+		}
 		if store.Type == UNSUPPORTED {
 			t.Errorf("Expected S3 type, got UNSUPPORTED")
 			t.FailNow()
@@ -352,7 +360,7 @@ func TestGetDefaultStore(t *testing.T) {
 }
 
 func TestWriteFilter(t *testing.T) {
-	store, err := Init(FS, nil) //GetDefaultStore()
+	store, err := Init(FS, nil)
 	if err != nil {
 		t.Errorf("Init failed, %s", err)
 		t.FailNow()

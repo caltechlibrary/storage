@@ -21,13 +21,14 @@ package storage
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 )
 
 const (
 	// Version of package
-	Version = `v0.0.4`
+	Version = `v0.0.5`
 
 	// UNSUPPORTED is used if Init fails the and a non-nil Store struck gets returned.
 	UNSUPPORTED = iota
@@ -107,8 +108,8 @@ func EnvToOptions(env []string) map[string]interface{} {
 	return opts
 }
 
-// Init returns a *Store structure that points to configuration info (e.g. S3 credentials)
-// and basic CRUD functions associated with the Store's storage type.
+// Init returns a Store struct and error based on the provided
+// type and options.
 func Init(storeType int, options map[string]interface{}) (*Store, error) {
 	store := new(Store)
 	store.Type = UNSUPPORTED
@@ -129,9 +130,30 @@ func Init(storeType int, options map[string]interface{}) (*Store, error) {
 	}
 }
 
-// GetDefaultStore tries to guess the storage type based on environment settings
-// if it can't is assumes storage.FS type.
-func GetDefaultStore() *Store {
+// StorageType takes a path or URL and makes a guess
+// as to which storage system is being referenced.
+// Returns the integer value of the const identifying the type.
+func StorageType(p string) int {
+	s := strings.ToLower(p)
+	if strings.Contains(p, "://") {
+		switch {
+		case strings.HasPrefix(s, "s3://"):
+			return S3
+		case strings.HasPrefix(s, "gs://"):
+			return GS
+		default:
+			return UNSUPPORTED
+		}
+	}
+	return FS
+}
+
+// GetDefaultStore returns a new Store based on environment settings.
+// If no environment settings found then the storage type
+// is assumed to be FS.
+//
+// Returns a new Store and error
+func GetDefaultStore() (*Store, error) {
 	opts := map[string]interface{}{}
 	sType := FS
 	for _, env := range os.Environ() {
@@ -169,24 +191,38 @@ func GetDefaultStore() *Store {
 			opts["GoogleBucket"] = s
 		}
 	}
-	store, _ := Init(sType, opts)
-	return store
+	store, err := Init(sType, opts)
+	return store, err
 }
 
-// StorageType takes a path or URL and makes a guess
-// as to which storage system is being referenced.
-// Returns the integer value of the const identifying the type.
-func StorageType(p string) int {
-	s := strings.ToLower(p)
-	if strings.Contains(p, "://") {
-		switch {
-		case strings.HasPrefix(s, "s3://"):
-			return S3
-		case strings.HasPrefix(s, "gs://"):
-			return GS
-		default:
-			return UNSUPPORTED
+// GetStore creates a new Store struct based on the path provided. Unlike
+// Init it derives the storage type from the path provided and populated options
+// based on that path.
+//
+// Returns a new Store struct and error
+func GetStore(name string) (*Store, error) {
+	// Get store type
+	sType := StorageType(name)
+	opts := map[string]interface{}{}
+
+	// Init the store based on storage type detected.
+	switch sType {
+	case S3:
+		// NOTE: Attempting to overwrite the lack of an environment variable AWS_SDK_LOAD_CONFIG=1
+		if os.Getenv("AWS_SDK_LOAD_CONFIG") == "" {
+			os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
 		}
+		u, _ := url.Parse(name)
+		opts := EnvToOptions(os.Environ())
+		opts["AwsBucket"] = u.Host
+	case GS:
+		u, _ := url.Parse(name)
+		opts := EnvToOptions(os.Environ())
+		opts["GoogleBucket"] = u.Host
 	}
-	return FS
+	store, err := Init(sType, opts)
+	if err != nil {
+		return nil, err
+	}
+	return store, nil
 }
