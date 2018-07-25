@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -225,4 +226,52 @@ func GetStore(name string) (*Store, error) {
 		return nil, err
 	}
 	return store, nil
+}
+
+// FindByExtension retrieves a list of documents with the
+// matching extension from the folder/directory indicated by
+// path. It is non-recursive and only scans the provided path
+// for the file extension.
+func (store *Store) FindByExtension(p string, ext string) ([]string, error) {
+	var docs []string
+
+	dirInfo, err := store.ReadDir(p)
+	if err != nil {
+		return docs, err
+	}
+	for _, item := range dirInfo {
+		if item.IsDir() == false {
+			fname := item.Name()
+			if suffix := path.Ext(fname); suffix == ext {
+				docs = append(docs, fname)
+			}
+		}
+	}
+	return docs, nil
+}
+
+// IsFile returns true if the result of checking Stat
+// on the path exists and is not a directory
+func (store *Store) IsFile(p string) bool {
+	info, err := store.Stat(p)
+	if os.IsNotExist(err) {
+		return false
+	}
+	if info.IsDir() {
+		return false
+	}
+	return true
+}
+
+// IsDir returns true if the result of checking Stat
+// on path exists and is a directory
+func (store *Store) IsDir(p string) bool {
+	info, err := store.Stat(p)
+	if os.IsNotExist(err) {
+		return false
+	}
+	if info.IsDir() {
+		return true
+	}
+	return false
 }

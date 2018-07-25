@@ -454,15 +454,38 @@ func TestStorageType(t *testing.T) {
 	}
 }
 
-/*
-func TestCreateOnExistingS3(t *testing.T) {
-	data := map[string]int{
-		"one":   1,
-		"two":   2,
-		"three": 3,
+func TestFindAndExistence(t *testing.T) {
+	// Check to see if we can find README.md in the list of files
+	store, err := GetStore(".")
+	if err != nil {
+		t.Errorf("Expected to current working directory, %s", err)
+		t.FailNow()
+	}
+	if store.IsDir(".") == false {
+		t.Errorf("expected true, got false, IsDir(\".\")")
+		t.FailNow()
+	}
+	if store.IsFile(".") == true {
+		t.Errorf("expected false, got true, IsFile(\".\")")
+		t.FailNow()
+	}
+	files, err := store.FindByExtension(".", ".md")
+	if err != nil {
+		t.Errorf("Expected a list of files from '.', %s", err)
+		t.FailNow()
+	}
+	foundIt := false
+	for _, fname := range files {
+		if fname == "README.md" {
+			foundIt = true
+			break
+		}
+	}
+	if foundIt == false {
+		t.Errorf("Expected to find README.md in file list, %+v", files)
+		t.FailNow()
 	}
 }
-*/
 
 func TestMain(m *testing.M) {
 	var all bool
