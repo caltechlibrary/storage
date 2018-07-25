@@ -228,11 +228,13 @@ func GetStore(name string) (*Store, error) {
 	return store, nil
 }
 
-// FindByExtension retrieves a list of documents with the
+// FindByExt retrieves a list of documents with the
 // matching extension from the folder/directory indicated by
 // path. It is non-recursive and only scans the provided path
 // for the file extension.
-func (store *Store) FindByExtension(p string, ext string) ([]string, error) {
+//
+// The extension you're searching for should include the dot (e.g. .json)
+func (store *Store) FindByExt(p string, ext string) ([]string, error) {
 	var docs []string
 
 	dirInfo, err := store.ReadDir(p)
