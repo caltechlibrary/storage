@@ -256,7 +256,7 @@ func (store *Store) FindByExt(p string, ext string) ([]string, error) {
 // on the path exists and is not a directory
 func (store *Store) IsFile(p string) bool {
 	info, err := store.Stat(p)
-	if os.IsNotExist(err) {
+	if err != nil {
 		return false
 	}
 	if info.IsDir() {

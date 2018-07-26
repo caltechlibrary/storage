@@ -469,7 +469,7 @@ func TestFindAndExistence(t *testing.T) {
 		t.Errorf("expected false, got true, IsFile(\".\")")
 		t.FailNow()
 	}
-	files, err := store.FindByExtension(".", ".md")
+	files, err := store.FindByExt(".", ".md")
 	if err != nil {
 		t.Errorf("Expected a list of files from '.', %s", err)
 		t.FailNow()
