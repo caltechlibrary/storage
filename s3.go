@@ -24,14 +24,17 @@ import (
 
 // s3ObjectInfo is a map so we can create a os.FileInfo compatible struct from S3 objects
 type s3ObjectInfo struct {
-	Info map[string]interface{}
+	Info     map[string]interface{}
+	IsPrefix bool
 }
 
 // String returns a string representation of the object reported by ListObjects
 func (d *s3ObjectInfo) String() string {
-	src, err := json.Marshal(d.Info)
+	//src, err := json.Marshal(d.Info)
+	src, err := json.Marshal(d)
 	if err != nil {
-		return fmt.Sprintf("%+v", d.Info)
+		//return fmt.Sprintf("%+v", d.Info)
+		return fmt.Sprintf("%+v, IsPrefix %t, error %s", d.Info, d.IsPrefix, err)
 	}
 	return string(src)
 }
@@ -84,8 +87,13 @@ func (d *s3ObjectInfo) Mode() os.FileMode {
 	return os.FileMode(0)
 }
 
-// IsDir returns false, S3 doens't support the concept of directories only keys in buckets
+// IsDir returns false if S3 prefix is not found for path.
+// NOTE: S3 doesn't really support the concept of directories only keys in
+// buckets, it does return lists of matching prefix for partial match.
 func (d *s3ObjectInfo) IsDir() bool {
+	if d.IsPrefix {
+		return true
+	}
 	return false
 }
 
@@ -248,6 +256,8 @@ func s3Stat(s *Store, fname string) (os.FileInfo, error) {
 			if strings.Compare(oInfo.Name(), path.Base(fname)) == 0 {
 				return oInfo, nil
 			}
+			oInfo.IsPrefix = true
+			return oInfo, nil
 		}
 		return nil, fmt.Errorf("%s not found", fname)
 	}

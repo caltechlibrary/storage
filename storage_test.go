@@ -218,6 +218,10 @@ func TestCloudStorage(t *testing.T) {
 			}
 
 			fname := `testdata/helloworld.txt`
+			fInfo, err := store.Stat(fname)
+			if err == nil {
+				store.RemoveAll(fname)
+			}
 			expected := []byte(`Hello World!!!`)
 			err = store.Create(fname, bytes.NewReader(expected))
 			if err != nil {
@@ -226,7 +230,7 @@ func TestCloudStorage(t *testing.T) {
 			}
 
 			// Stat for Storage Type
-			fInfo, err := store.Stat(fname)
+			fInfo, err = store.Stat(fname)
 			if err != nil {
 				t.Errorf("Stat error for %s, %s for %s", fname, err, sLabel)
 				t.FailNow()
@@ -241,12 +245,19 @@ func TestCloudStorage(t *testing.T) {
 			if fInfo.Size() != int64(len(expected)) {
 				t.Errorf("expected %d, got %d for %s", int64(len(expected)), fInfo.Size(), sLabel)
 			}
+			if fInfo.IsDir() != false {
+				t.Errorf("expected IsDir() to return false for %+v\n", fInfo)
+			}
 
-			// Stat for Storage Type  non-object
-			fInfo, err = store.Stat(path.Dir(fname))
-			if err == nil {
-				t.Errorf("Expected err != nil, fInfo: %+v for %s", fInfo, sLabel)
+			// Stat for Storage Type non-object
+			dname := path.Dir(fname)
+			fInfo, err = store.Stat(dname)
+			if err != nil {
+				t.Errorf("expected err != nil, path to %q fInfo: %+v for %s", dname, fInfo, sLabel)
 				t.FailNow()
+			}
+			if fInfo.IsDir() == false {
+				t.Errorf("expected fInfo.IsDir() to be true, %+v\n", fInfo)
 			}
 
 			result, err := store.Read(fname)
