@@ -136,15 +136,13 @@ func Init(storeType int, options map[string]interface{}) (*Store, error) {
 // Returns the integer value of the const identifying the type.
 func StorageType(p string) int {
 	s := strings.ToLower(p)
-	if strings.Contains(p, "://") {
-		switch {
-		case strings.HasPrefix(s, "s3://"):
-			return S3
-		case strings.HasPrefix(s, "gs://"):
-			return GS
-		default:
-			return UNSUPPORTED
-		}
+	switch {
+	case strings.HasPrefix(s, "s3://"):
+		return S3
+	case strings.HasPrefix(s, "gs://"):
+		return GS
+	case strings.Contains(s, "://"):
+		return UNSUPPORTED
 	}
 	return FS
 }
@@ -155,20 +153,8 @@ func StorageType(p string) int {
 //
 // Returns a new Store and error
 func GetDefaultStore() (*Store, error) {
-	opts := map[string]interface{}{}
+	opts := EnvToOptions(os.Environ())
 	sType := FS
-	for _, env := range os.Environ() {
-		if strings.Contains(env, "=") {
-			kv := strings.SplitN(env, "=", 2)
-			if len(kv) == 2 {
-				k, v := kv[0], kv[1]
-				opts[k] = v
-				if strings.HasPrefix(k, "AWS_") == true {
-					sType = S3
-				}
-			}
-		}
-	}
 	//FIXME: Shouldn't we be calling individual typed default functions per sType? (e.g. in fs.go, s3.go, gs.go)
 	switch sType {
 	case S3:
@@ -204,7 +190,7 @@ func GetDefaultStore() (*Store, error) {
 func GetStore(name string) (*Store, error) {
 	// Get store type
 	sType := StorageType(name)
-	opts := map[string]interface{}{}
+	opts := EnvToOptions(os.Environ())
 
 	// Init the store based on storage type detected.
 	switch sType {
@@ -214,11 +200,9 @@ func GetStore(name string) (*Store, error) {
 			os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
 		}
 		u, _ := url.Parse(name)
-		opts := EnvToOptions(os.Environ())
 		opts["AwsBucket"] = u.Host
 	case GS:
 		u, _ := url.Parse(name)
-		opts := EnvToOptions(os.Environ())
 		opts["GoogleBucket"] = u.Host
 	}
 	store, err := Init(sType, opts)

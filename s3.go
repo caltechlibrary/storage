@@ -270,7 +270,7 @@ func s3Create(s *Store, fname string, rd io.Reader) error {
 	if val, ok := s.Config["s3Service"]; ok == true {
 		s3Svc := val.(s3iface.S3API)
 		if _, ok := s.Config["AwsBucket"]; ok == false {
-			return fmt.Errorf("Bucket not defined for %s", fname)
+			return fmt.Errorf("Bucket not defined for %ss", fname)
 		}
 		bucketName := s.Config["AwsBucket"].(string)
 		upParams := &s3manager.UploadInput{
