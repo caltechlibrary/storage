@@ -246,19 +246,28 @@ func TestCloudStorage(t *testing.T) {
 				t.Errorf("expected %d, got %d for %s", int64(len(expected)), fInfo.Size(), sLabel)
 			}
 			if fInfo.IsDir() == true {
-				t.Errorf("expected IsDir() to return false for %+v\n", fInfo)
+				t.Errorf("expected IsDir() to return false for %+v", fInfo)
+			}
+			if store.IsDir(fname) == true {
+				t.Errorf("expected store.IsDir(%q) to return false, got true", fname)
 			}
 
-			// Stat for Storage Type non-object
-			dname := path.Dir(fname) + "/"
-			fInfo, err = store.Stat(dname)
-			if err != nil {
-				t.Errorf("expected err != nil, path to %q fInfo: %+v for %s", dname, fInfo, sLabel)
-				t.FailNow()
+			// NOTE: Stat for "directory" in Storage Type != FS can't return a non-object so with be false
+			if store.IsDir(path.Dir(fname)) == true {
+				t.Errorf("expected store.IsDir(path.Dir(%q)) to return false, got true", fname)
 			}
-			if fInfo.IsDir() == false {
-				t.Errorf("expected fInfo.IsDir() to be true, %+v\n", fInfo)
-			}
+
+			/*
+				dname := path.Dir(fname) + "/"
+				fInfo, err = store.Stat(dname)
+				if err != nil {
+					t.Errorf("expected err != nil, path to %q fInfo: %+v for %s", dname, fInfo, sLabel)
+					t.FailNow()
+				}
+				if fInfo.IsDir() == false {
+					t.Errorf("expected fInfo.IsDir() to be true, %+v\n", fInfo)
+				}
+			*/
 
 			result, err := store.Read(fname)
 			if err != nil {

@@ -259,7 +259,7 @@ func (store *Store) IsDir(p string) bool {
 	if os.IsNotExist(err) {
 		return false
 	}
-	if info.IsDir() {
+	if store.Type == FS && info.IsDir() {
 		return true
 	}
 	return false
