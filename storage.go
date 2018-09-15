@@ -156,6 +156,9 @@ func GetDefaultStore() (*Store, error) {
 	opts := EnvToOptions(os.Environ())
 	sType := FS
 	//FIXME: Shouldn't we be calling individual typed default functions per sType? (e.g. in fs.go, s3.go, gs.go)
+	if _, ok := opts["AwsBucket"]; ok == true {
+		sType = S3
+	}
 	switch sType {
 	case S3:
 		if s := os.Getenv("AWS_BUCKET"); s != "" {

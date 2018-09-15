@@ -25,6 +25,7 @@ import (
 // s3ObjectInfo is a map so we can create a os.FileInfo compatible struct from S3 objects
 type s3ObjectInfo struct {
 	Info     map[string]interface{}
+	Dirname  string
 	IsPrefix bool
 }
 
@@ -33,8 +34,7 @@ func (d *s3ObjectInfo) String() string {
 	//src, err := json.Marshal(d.Info)
 	src, err := json.Marshal(d)
 	if err != nil {
-		//return fmt.Sprintf("%+v", d.Info)
-		return fmt.Sprintf("%+v, IsPrefix %t, error %s", d.Info, d.IsPrefix, err)
+		return fmt.Sprintf("%+v, IsPrefix %t, Dirname %q error %s", d.Info, d.IsPrefix, d.Dirname, err)
 	}
 	return string(src)
 }
@@ -55,6 +55,9 @@ func s3ToObjectInfo(o *s3.Object) *s3ObjectInfo {
 // Name returns the Key after evaluating with path.Base() so we match os.FileInfo.Name()
 // or an empty string
 func (d *s3ObjectInfo) Name() string {
+	if d.IsPrefix == true && d.Dirname != "" {
+		return d.Dirname
+	}
 	if val, ok := d.Info["Key"]; ok == true {
 		p := val.(*string)
 		return path.Base(*p)
@@ -256,8 +259,12 @@ func s3Stat(s *Store, fname string) (os.FileInfo, error) {
 			if strings.Compare(oInfo.Name(), path.Base(fname)) == 0 {
 				return oInfo, nil
 			}
-			oInfo.IsPrefix = true
-			return oInfo, nil
+			// NOTE: Simulate a trailing '/' as directory marker
+			if strings.HasSuffix(fname, "/") {
+				oInfo.Dirname = fname
+				oInfo.IsPrefix = true
+				return oInfo, nil
+			}
 		}
 		return nil, fmt.Errorf("%s not found", fname)
 	}

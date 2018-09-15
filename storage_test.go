@@ -245,12 +245,12 @@ func TestCloudStorage(t *testing.T) {
 			if fInfo.Size() != int64(len(expected)) {
 				t.Errorf("expected %d, got %d for %s", int64(len(expected)), fInfo.Size(), sLabel)
 			}
-			if fInfo.IsDir() != false {
+			if fInfo.IsDir() == true {
 				t.Errorf("expected IsDir() to return false for %+v\n", fInfo)
 			}
 
 			// Stat for Storage Type non-object
-			dname := path.Dir(fname)
+			dname := path.Dir(fname) + "/"
 			fInfo, err = store.Stat(dname)
 			if err != nil {
 				t.Errorf("expected err != nil, path to %q fInfo: %+v for %s", dname, fInfo, sLabel)
@@ -353,7 +353,7 @@ func TestGetDefaultStore(t *testing.T) {
 			os.Setenv(k, v)
 		}
 	}
-	if testS3 == true {
+	if testS3 == true && os.Getenv("AWS_BUCKET") != "" {
 		store, err = GetDefaultStore()
 		if err != nil {
 			t.Error(err)
