@@ -278,6 +278,21 @@ func TestCloudStorage(t *testing.T) {
 		if store.IsDir(dname) == true {
 			t.Errorf("expected store.IsDir(%q) to be false, %+v\n", dname, store)
 		}
+		// Make sure we can read back a directory for fname
+		dList, err := store.ReadDir(dname)
+		if err != nil {
+			t.Errorf("expected a directory listing for %q, %s", dname, err)
+			t.FailNow()
+		}
+		if len(dList) == 0 {
+			t.Errorf("expected at least one file in %q", dname)
+		}
+		/*DEBUG
+		for _, info := range dInfos {
+			fmt.Fprintf(os.Stderr, "DEBUG info:\n%+v\n", info)
+		}
+		*/
+
 		mname := path.Join(dname, "collection.json")
 		if _, err := store.Stat(mname); err == nil {
 			t.Errorf("expected store.Stat(%q) to return error, got nil", mname)
