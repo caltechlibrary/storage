@@ -30,8 +30,8 @@ import (
 )
 
 var (
-	testS3 bool
-	testGS bool
+	S3Bucket string
+	GSBucket string
 )
 
 func TestFS(t *testing.T) {
@@ -145,17 +145,29 @@ func TestFS(t *testing.T) {
 }
 
 func TestCloudStorage(t *testing.T) {
+	var (
+		testS3 bool
+		testGS bool
+	)
+	// Configure tests
 	storeType := UNSUPPORTED
+	if len(S3Bucket) > 0 {
+		testS3 = true
+		os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
+		os.Setenv("AWS_BUCKET", S3Bucket)
+	}
+	if GSBucket != "" {
+		testGS = true
+		os.Setenv("GOOGLE_BUCKET", GSBucket)
+	}
+
 	storeTypes := map[string]bool{
 		"S3": testS3,
 		"GS": testGS,
 	}
-
 	for sLabel, ok := range storeTypes {
 		options := map[string]interface{}{}
 		switch {
-		case sLabel == "FS" && ok:
-			storeType = FS
 		case sLabel == "S3" && ok:
 			storeType = S3
 			if s := os.Getenv("AWS_BUCKET"); s != "" {
@@ -215,6 +227,7 @@ func TestCloudStorage(t *testing.T) {
 			t.FailNow()
 		}
 
+		// Clear stale helloworld.txt
 		fname := `testdata/helloworld.txt`
 		fInfo, err := store.Stat(fname)
 		if err == nil {
@@ -223,7 +236,7 @@ func TestCloudStorage(t *testing.T) {
 		expected := []byte(`Hello World!!!`)
 		err = store.Create(fname, bytes.NewReader(expected))
 		if err != nil {
-			t.Errorf("%s for %s", err, sLabel)
+			t.Errorf("%s\nfor %s bucket %q", err, sLabel, store.Config["AwsBucket"])
 			t.FailNow()
 		}
 
@@ -362,7 +375,7 @@ func TestGetDefaultStore(t *testing.T) {
 			os.Setenv(k, v)
 		}
 	}
-	if testS3 == true && os.Getenv("AWS_BUCKET") != "" {
+	if S3Bucket != "" && os.Getenv("AWS_BUCKET") != "" {
 		store, err = GetDefaultStore()
 		if err != nil {
 			t.Error(err)
@@ -508,15 +521,8 @@ func TestFindAndExistence(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	var all bool
-
-	flag.BoolVar(&all, "all", false, "Run All tests include S3 and GS storage")
-	flag.BoolVar(&testS3, "s3", false, "Run S3 storageType tests")
-	flag.BoolVar(&testGS, "gs", false, "Run GS storageType tests")
+	flag.StringVar(&S3Bucket, "s3", "", "Run S3 tests with bucketname")
+	flag.StringVar(&GSBucket, "gs", "", "Run GS tests with bucketname")
 	flag.Parse()
-	if all == true {
-		testS3 = true
-		testGS = true
-	}
 	os.Exit(m.Run())
 }

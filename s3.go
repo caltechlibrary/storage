@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -110,6 +111,17 @@ func s3Configure(store *Store) (*Store, error) {
 
 	// Set storage type to S3
 	store.Type = S3
+
+	if val, ok := store.Config["AwsBucket"]; ok == true {
+		if strings.HasPrefix(val.(string), "s3://") {
+			u, err := url.Parse(val.(string))
+			if err != nil {
+				return nil, fmt.Errorf("invalid bucket name %q", val.(string))
+			}
+			store.Config["AwsBucket"] = u.Host
+		}
+
+	}
 
 	if val, ok := store.Config["AwsSDKLoadConfig"]; ok == true {
 		awsSDKLoadConfig = val.(bool)
