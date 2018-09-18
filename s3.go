@@ -243,16 +243,19 @@ func s3Configure(store *Store) (*Store, error) {
 // S3Stat takes a file name and returns a FileInfo and error value
 func s3Stat(s *Store, fname string) (os.FileInfo, error) {
 	if val, ok := s.Config["s3Service"]; ok == true {
-		s3Svc := val.(s3iface.S3API)
 		if _, ok := s.Config["AwsBucket"]; ok == false {
+			fmt.Printf("DEBUG bucket not defined! %q\n", fname)
 			return nil, fmt.Errorf("Bucket not defined for %s", fname)
 		}
 		bucketName := s.Config["AwsBucket"].(string)
+		// Trim the leading slash
+		workPath := strings.TrimPrefix(fname, "/")
 		statParams := &s3.ListObjectsInput{
 			Bucket:  &bucketName,
-			Prefix:  &fname,
+			Prefix:  &workPath,
 			MaxKeys: aws.Int64(1),
 		}
+		s3Svc := val.(s3iface.S3API)
 		res, err := s3Svc.ListObjects(statParams)
 		if err != nil {
 			return nil, err
