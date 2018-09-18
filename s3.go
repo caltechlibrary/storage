@@ -329,7 +329,7 @@ func s3ReadDir(s *Store, fname string) ([]os.FileInfo, error) {
 		bucketName := s.Config["AwsBucket"].(string)
 		params := &s3.ListObjectsInput{
 			Bucket: aws.String(bucketName),
-			Prefix: aws.String(fname),
+			Prefix: aws.String(strings.TrimPrefix(fname, "/")),
 		}
 		pageNo := 0
 		results := []os.FileInfo{}
