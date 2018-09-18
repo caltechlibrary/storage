@@ -291,7 +291,7 @@ func TestCloudStorage(t *testing.T) {
 		if len(dList) == 0 {
 			t.Errorf("expected at least one file in %q", dname)
 		}
-		/**/ //DEBUG
+		/** //DEBUG
 		for _, info := range dList {
 			fmt.Fprintf(os.Stderr, "DEBUG %q dList:\n%q\n", dname, info.Name())
 		}

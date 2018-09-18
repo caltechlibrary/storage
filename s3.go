@@ -244,7 +244,6 @@ func s3Configure(store *Store) (*Store, error) {
 func s3Stat(s *Store, fname string) (os.FileInfo, error) {
 	if val, ok := s.Config["s3Service"]; ok == true {
 		if _, ok := s.Config["AwsBucket"]; ok == false {
-			fmt.Printf("DEBUG bucket not defined! %q\n", fname)
 			return nil, fmt.Errorf("Bucket not defined for %s", fname)
 		}
 		bucketName := s.Config["AwsBucket"].(string)
