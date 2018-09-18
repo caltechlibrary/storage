@@ -229,10 +229,14 @@ func TestCloudStorage(t *testing.T) {
 
 		// Clear stale helloworld.txt
 		fname := `testdata/helloworld.txt`
-		fInfo, err := store.Stat(fname)
+		_, err = store.Stat(fname)
 		if err == nil {
-			store.RemoveAll(fname)
+			err = store.Remove(fname)
+			if err != nil {
+				t.Errorf("could not remove stale %q, %s", fname, err)
+			}
 		}
+
 		expected := []byte(`Hello World!!!`)
 		err = store.Create(fname, bytes.NewReader(expected))
 		if err != nil {
@@ -241,7 +245,7 @@ func TestCloudStorage(t *testing.T) {
 		}
 
 		// Stat for Storage Type
-		fInfo, err = store.Stat(fname)
+		fInfo, err := store.Stat(fname)
 		if err != nil {
 			t.Errorf("Stat error for %s, %s for %s", fname, err, sLabel)
 			t.FailNow()
@@ -287,11 +291,11 @@ func TestCloudStorage(t *testing.T) {
 		if len(dList) == 0 {
 			t.Errorf("expected at least one file in %q", dname)
 		}
-		/*DEBUG
-		for _, info := range dInfos {
-			fmt.Fprintf(os.Stderr, "DEBUG info:\n%+v\n", info)
+		/**/ //DEBUG
+		for _, info := range dList {
+			fmt.Fprintf(os.Stderr, "DEBUG %q dList:\n%q\n", dname, info.Name())
 		}
-		*/
+		/**/
 
 		mname := path.Join(dname, "collection.json")
 		if _, err := store.Stat(mname); err == nil {
