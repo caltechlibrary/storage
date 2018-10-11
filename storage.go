@@ -29,7 +29,7 @@ import (
 
 const (
 	// Version of package
-	Version = `v0.0.6`
+	Version = `v0.0.7`
 
 	// UNSUPPORTED is used if Init fails the and a non-nil Store struck gets returned.
 	UNSUPPORTED = iota
@@ -263,4 +263,30 @@ func (store *Store) IsDir(p string) bool {
 		return true
 	}
 	return false
+}
+
+// Location returns either a working path (disc) or URI (cloud/object store)
+func (store *Store) Location(workPath string) (string, error) {
+	switch store.Type {
+	case FS:
+		return workPath, nil
+	case S3:
+		if bucket, ok := store.Config["AwsBucket"]; ok == true {
+			if strings.HasPrefix(workPath, "/") {
+				workPath = strings.TrimPrefix(workPath, "/")
+			}
+			return fmt.Sprintf("s3://%s/%s", bucket.(string), workPath), nil
+		}
+		return "", fmt.Errorf("error in s3 configuration")
+	case GS:
+		if bucket, ok := store.Config["GoogleBucket"]; ok == true {
+			if strings.HasPrefix(workPath, "/") {
+				workPath = strings.TrimPrefix(workPath, "/")
+			}
+			return fmt.Sprintf("gs://%s/%s", bucket.(string), workPath), nil
+		}
+		return "", fmt.Errorf("error in GS configuration")
+	default:
+		return "", fmt.Errorf("storeType not supported")
+	}
 }

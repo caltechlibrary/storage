@@ -362,6 +362,27 @@ func TestCloudStorage(t *testing.T) {
 		if err != nil {
 			t.Errorf("Could not remove testdata and it's children, %s", err)
 		}
+		// Test Location() method
+		workPath := "src/github.com/me/mystuff"
+		loc, err := store.Location(workPath)
+		if err != nil {
+			t.Errorf("Location() failed, %s", err)
+			t.FailNow()
+		}
+		protocolPrefix := ""
+		bucketName := ""
+		switch store.Type {
+		case S3:
+			protocolPrefix = "s3://"
+			bucketName = S3Bucket
+		case GS:
+			protocolPrefix = "gs://"
+			bucketName = GSBucket
+		}
+		expectedPath := fmt.Sprintf("%s%s/%s", protocolPrefix, bucketName, workPath)
+		if expectedPath == loc {
+			t.Errorf("expected %q, got %q", expectedPath, loc)
+		}
 	}
 }
 
@@ -537,6 +558,35 @@ func TestFindAndExistence(t *testing.T) {
 		t.Errorf("Expected to find README.md in file list, %+v", files)
 		t.FailNow()
 	}
+}
+
+func TestLocation(t *testing.T) {
+	workPath := "src/stuff/data"
+	store, err := Init(FS, nil)
+	if err != nil {
+		t.Errorf("Init() failed, %s", err)
+		t.FailNow()
+	}
+	loc, err := store.Location(workPath)
+	if err != nil {
+		t.Errorf("Location() failed, %s", err)
+		t.FailNow()
+	}
+	if workPath != loc {
+		t.Errorf("expected %q, got %q", workPath, loc)
+	}
+
+	/*
+		loc, err := store.Location(workPath)
+		if err != nil {
+			t.Errorf("Location() failed, %s", err)
+			t.FailNow()
+		}
+		expected = fmt.Sprintf("gs://%s/%s", bucketName, workPath)
+		if expected == loc {
+			t.Errorf("expected %q, got %q", workPath, loc)
+		}
+	*/
 }
 
 func TestMain(m *testing.M) {
