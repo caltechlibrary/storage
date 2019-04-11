@@ -3,6 +3,13 @@
 
 ## Next
 
++ [ ] Convert from vendor specific packages to go-cloud 
+    + [ ] refactor fs.go
+    + [ ] refactor gs.go
+    + [ ] refactor s3.go
+    + [ ] add support for Azure blob store
+    + [ ] add support for in-memory store
+    + [ ] add support for MySQL JSON store
 + [ ] Add support for ReadDir() 
     + [x] for FS
     + [x] for S3
