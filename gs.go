@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -61,7 +62,7 @@ func gsConfigure(store *Store) (*Store, error) {
 		//NOTE: GS lacks the concept of directories, the fill path is the "Key" value info the bucket
 		return nil
 	}
-	store.MkdirAll = func(path string, perm os.FileMode) error {
+	store.MkdirAll = func(p string, perm os.FileMode) error {
 		//NOTE: GS lacks the concept of directories, the fill path is the "Key" value info the bucket
 		return nil
 	}
@@ -83,21 +84,100 @@ func gsConfigure(store *Store) (*Store, error) {
 	}
 
 	// Add Path related funcs
-	store.Base = func(path string) string {
+	store.Base = func(p string) string {
+		if strings.HasPrefix(p, "gs://") {
+			u, err := url.Parse(p)
+			if err == nil {
+				return path.Base(u.Path)
+			}
+			// UGLY: If we don't have a proper url
+			// fall through and treat it as a path...
+		}
+		return path.Base(p)
 	}
-	store.Clean = func(path string) string {
+	store.Clean = func(p string) string {
+		if strings.HasPrefix(p, "gs://") {
+			u, err := url.Parse(p)
+			if err == nil {
+				u.Path = path.Clean(u.Path)
+				return u.String()
+			}
+			// UGLY: If we don't have a proper url
+			// fall through and treat it as a path...
+		}
+		return path.Clean(p)
 	}
-	store.Dir = func(path string) string {
+	store.Dir = func(p string) string {
+		if strings.HasPrefix(p, "gs://") {
+			u, err := url.Parse(p)
+			if err == nil {
+				u.Path = path.Dir(u.Path)
+				return u.String()
+			}
+			// UGLY: If we don't have a proper url
+			// fall through and treat it as a path...
+		}
+		return path.Dir(p)
 	}
-	store.Ext = func(path string) string {
+	store.Ext = func(p string) string {
+		if strings.HasPrefix(p, "gs://") {
+			u, err := url.Parse(p)
+			if err == nil {
+				return path.Ext(u.Path)
+			}
+			// UGLY: If we don't have a proper url
+			// fall through and treat it as a path...
+		}
+		return path.Ext(p)
 	}
-	store.IsAbs = func(path string) bool {
+	store.IsAbs = func(p string) bool {
+		if strings.HasPrefix(p, "gs://") {
+			u, err := url.Parse(p)
+			if err == nil {
+				return path.IsAbs(u.Path)
+			}
+			// UGLY: If we don't have a proper url
+			// fall through and treat it as a path...
+		}
+		return path.IsAbs(p)
 	}
 	store.Join = func(elem ...string) string {
+		if len(elem) == 0 {
+			return ""
+		}
+		if strings.HasPrefix(elem[0], "gs://") {
+			u, err := url.Parse(elem[0])
+			if err == nil {
+				elem[0] = u.Path
+				u.Path = path.Join(elem...)
+				return u.String()
+			}
+			// UGLY: If we don't have a proper url
+			// fall through and treat it as a path...
+		}
+		return path.Join(elem...)
 	}
 	store.Match = func(pattern string, name string) (matched bool, err error) {
+		if strings.HasPrefix(name, "gs://") {
+			u, err := url.Parse(name)
+			if err == nil {
+				return path.Match(pattern, u.Path)
+			}
+			// UGLY: If we don't have a proper url
+			// fall through and treat it as a path...
+		}
+		return path.Match(pattern, name)
 	}
-	store.Split = func(path string) (dir, filename string) {
+	store.Split = func(p string) (dir, filename string) {
+		if strings.HasPrefix(p, "gs://") {
+			u, err := url.Parse(p)
+			if err == nil {
+				p, f := path.Split(u.Path)
+				u.Path = p
+				return u.String(), f
+			}
+		}
+		return path.Split(p)
 	}
 
 	// Extended options for datatools and dataset

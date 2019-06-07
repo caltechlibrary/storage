@@ -66,6 +66,7 @@ type Store struct {
 
 	// Additoinal operations for campatibility with path.*
 	Base  func(string) string
+	Clean func(string) string
 	Dir   func(string) string
 	Ext   func(string) string
 	IsAbs func(string) bool

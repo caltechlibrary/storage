@@ -55,22 +55,32 @@ func fsConfigure(store *Store) (*Store, error) {
 		return ioutil.ReadDir(fname)
 	}
 
+	//
 	// Add Path related funcs
-	store.Base = func(path string) string {
+	//
+	store.Base = func(p string) string {
+		return path.Base(p)
 	}
-	store.Clean = func(path string) string {
+	store.Clean = func(p string) string {
+		return path.Clean(p)
 	}
-	store.Dir = func(path string) string {
+	store.Dir = func(p string) string {
+		return path.Dir(p)
 	}
-	store.Ext = func(path string) string {
+	store.Ext = func(p string) string {
+		return path.Ext(p)
 	}
-	store.IsAbs = func(path string) bool {
+	store.IsAbs = func(p string) bool {
+		return path.IsAbs(p)
 	}
 	store.Join = func(elem ...string) string {
+		return path.Join(elem...)
 	}
 	store.Match = func(pattern string, name string) (matched bool, err error) {
+		return path.Match(pattern, name)
 	}
-	store.Split = func(path string) (dir, filename string) {
+	store.Split = func(p string) (dir, filename string) {
+		return path.Split(p)
 	}
 
 	// Extended ops for datatools and dataset
