@@ -3,6 +3,10 @@
 
 ## Next
 
++ [ ] Add a Join(), Dir(), Basename() for paths that are local as well as as remove
+    + [ ] fs.go
+    + [ ] gs.go
+    + [ ] s3.go
 + [ ] Convert from vendor specific packages to go-cloud 
     + [ ] refactor fs.go
     + [ ] refactor gs.go
@@ -10,20 +14,18 @@
     + [ ] add support for Azure blob store
     + [ ] add support for in-memory store
     + [ ] add support for MySQL JSON store
-+ [ ] Add support for ReadDir() 
-    + [x] for FS
-    + [x] for S3
-    + [ ] for GS
+    + [ ] Add support for ReadDir() (this should be refactored to use go-cloud package
+        + [x] for FS
+        + [x] for S3
+        + [ ] for GS
 
 ## Someday, Maybe
 
-+ [ ] Migrate gs.go, fs.go, s3.go into their own submodules
 + [ ] CopyFile
 + [ ] add support for our NAS
 + [ ] add support for Dropbox
 + [ ] add support for Google Drive
 + [ ] add support for Box
-+ [ ] Integrate or replace storage package with [Minio](https://minio.io/)
 
 ## Completed
 

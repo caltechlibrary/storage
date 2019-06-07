@@ -29,7 +29,7 @@ import (
 
 const (
 	// Version of package
-	Version = `v0.0.7`
+	Version = `v0.0.8`
 
 	// UNSUPPORTED is used if Init fails the and a non-nil Store struck gets returned.
 	UNSUPPORTED = iota
@@ -63,6 +63,15 @@ type Store struct {
 	ReadFile  func(string) ([]byte, error)
 	WriteFile func(string, []byte, os.FileMode) error
 	ReadDir   func(string) ([]os.FileInfo, error)
+
+	// Additoinal operations for campatibility with path.*
+	Base  func(string) string
+	Dir   func(string) string
+	Ext   func(string) string
+	IsAbs func(string) bool
+	Join  func(...string) string
+	Match func(string, string) (bool, error)
+	Split func(string) (string, string)
 
 	// Extended operations for datatools and dataset
 	// Writefilter takes a final path and a processing function which accepts the temp pointer

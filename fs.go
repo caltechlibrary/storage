@@ -55,6 +55,24 @@ func fsConfigure(store *Store) (*Store, error) {
 		return ioutil.ReadDir(fname)
 	}
 
+	// Add Path related funcs
+	store.Base = func(path string) string {
+	}
+	store.Clean = func(path string) string {
+	}
+	store.Dir = func(path string) string {
+	}
+	store.Ext = func(path string) string {
+	}
+	store.IsAbs = func(path string) bool {
+	}
+	store.Join = func(elem ...string) string {
+	}
+	store.Match = func(pattern string, name string) (matched bool, err error) {
+	}
+	store.Split = func(path string) (dir, filename string) {
+	}
+
 	// Extended ops for datatools and dataset
 
 	// WriteFilter writes a file after running/applying a filter function to its' file pointer

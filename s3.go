@@ -205,6 +205,24 @@ func s3Configure(store *Store) (*Store, error) {
 		return s3ReadDir(store, fname)
 	}
 
+	// Add Path related funcs
+	store.Base = func(path string) string {
+	}
+	store.Clean = func(path string) string {
+	}
+	store.Dir = func(path string) string {
+	}
+	store.Ext = func(path string) string {
+	}
+	store.IsAbs = func(path string) bool {
+	}
+	store.Join = func(elem ...string) string {
+	}
+	store.Match = func(pattern string, name string) (matched bool, err error) {
+	}
+	store.Split = func(path string) (dir, filename string) {
+	}
+
 	// Extended options for datatools and dataset
 
 	// WriteFilter writes a file after running apply a filter function to its' file pointer
