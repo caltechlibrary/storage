@@ -29,7 +29,7 @@ import (
 
 const (
 	// Version of package
-	Version = `v0.0.8`
+	Version = `v0.0.9`
 
 	// UNSUPPORTED is used if Init fails the and a non-nil Store struck gets returned.
 	UNSUPPORTED = iota
@@ -40,6 +40,10 @@ const (
 	// GS remote storage via Google Cloud Storage
 	GS
 	// Other constants will be create as other storage systems are implemented
+
+	// GO_CDK provides a common interface to Comercial blob stores like
+	// AWS S3, GS and Azure
+	GO_CDK
 )
 
 // Store wrapps the given system interface normalizing to simple Create, Read, Update, Delete operations
@@ -136,6 +140,8 @@ func Init(storeType int, options map[string]interface{}) (*Store, error) {
 		return s3Configure(store)
 	case GS:
 		return gsConfigure(store)
+	case GO_CDK:
+		return cdkConfigure(store)
 	default:
 		return store, fmt.Errorf("storeType not supported")
 	}
@@ -146,11 +152,26 @@ func Init(storeType int, options map[string]interface{}) (*Store, error) {
 // Returns the integer value of the const identifying the type.
 func StorageType(p string) int {
 	s := strings.ToLower(p)
+	//FIXME: We can support types with Go CDK, will need to map
+	// existing s3:// and gs:// code URLs to their Go CDK URL
+	// scheme.
 	switch {
 	case strings.HasPrefix(s, "s3://"):
-		return S3
+		return GO_CDK
 	case strings.HasPrefix(s, "gs://"):
-		return GS
+		return GO_CDK
+	case strings.HasPrefix(s, "az://"):
+		return GO_CDK
+	case strings.HasPrefix(s, "mem://"):
+		return GO_CDK
+	case strings.HasPrefix(s, "file://"):
+		return GO_CDK
+		/*
+			case strings.HasPrefix(s, "s3://"):
+				return S3
+			case strings.HasPrefix(s, "gs://"):
+				return GS
+		*/
 	case strings.Contains(s, "://"):
 		return UNSUPPORTED
 	}

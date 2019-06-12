@@ -3,21 +3,17 @@
 
 ## Next
 
-+ [ ] Add a Join(), Dir(), Basename() for paths that are local as well as as remove
-    + [ ] fs.go
-    + [ ] gs.go
-    + [ ] s3.go
 + [ ] Convert from vendor specific packages to go-cloud 
-    + [ ] refactor fs.go
+    + [x] refactor fs.go (no change needed when adopting go-cloud)
     + [ ] refactor gs.go
     + [ ] refactor s3.go
     + [ ] add support for Azure blob store
     + [ ] add support for in-memory store
     + [ ] add support for MySQL JSON store
     + [ ] Add support for ReadDir() (this should be refactored to use go-cloud package
-        + [x] for FS
-        + [x] for S3
-        + [ ] for GS
+        + [x] for fs.go
+        + [x] for s3.go
+        + [ ] for gs.go
 
 ## Someday, Maybe
 
@@ -29,6 +25,10 @@
 
 ## Completed
 
++ [x] Add a Join(), Dir(), Basename() for paths that are local as well as as remove
+    + [x] fs.go
+    + [x] gs.go
+    + [x] s3.go
 + [x] Review https://github.com/sajari/storage, see how hard it would be to add S3 support or add support for similar systems in our storage
 + [x] Add support for Google Cloud Storage with gs:// URL prefix in config environment
 + [x] WriteFileAfter - create a temp file, apply a function on the file pointer, then move to final location (e.g. local FS or S3)
