@@ -3,7 +3,7 @@
 //
 // @author R. S. Doiel, <rsdoiel@library.caltech.edu>
 //
-// Copyright (c) 2017, Caltech
+// Copyright (c) 2020, Caltech
 // All rights not granted herein are expressly reserved by Caltech.
 //
 // Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -21,7 +21,6 @@ package storage
 import (
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -29,16 +28,12 @@ import (
 
 const (
 	// Version of package
-	Version = `v0.0.8`
+	Version = `v0.1.0`
 
 	// UNSUPPORTED is used if Init fails the and a non-nil Store struck gets returned.
 	UNSUPPORTED = iota
 	// FS local file system
 	FS
-	// S3 remote storage via AWS S3
-	S3
-	// GS remote storage via Google Cloud Storage
-	GS
 	// Other constants will be create as other storage systems are implemented
 )
 
@@ -79,46 +74,6 @@ type Store struct {
 	WriteFilter func(string, func(*os.File) error) error
 }
 
-// EnvToOptions given an environment map envvars to their option.
-func EnvToOptions(env []string) map[string]interface{} {
-	opts := map[string]interface{}{}
-	for _, stmt := range env {
-		switch {
-		case strings.HasPrefix(stmt, "AWS_") && strings.Contains(stmt, "="):
-			kv := strings.SplitN(stmt, "=", 2)
-			switch kv[0] {
-			case "AWS_SDK_LOAD_CONFIG":
-				if kv[0] == "1" || strings.ToLower(kv[1]) == "true" {
-					opts["AwsSDKLoadConfig"] = true
-				} else {
-					opts["AwsSDKLoadConfig"] = false
-				}
-			case "AWS_PROFILE":
-				if kv[0] != "" {
-					opts["AwsProfile"] = kv[1]
-				} else {
-					opts["AwsProfile"] = "default"
-				}
-			case "AWS_SHARED_CONFIG_ENABLED":
-				if kv[0] == "1" || strings.ToLower(kv[1]) == "true" {
-					opts["AwsSharedConfigEnabled"] = true
-				} else {
-					opts["AwsSharedConfigEnabled"] = false
-				}
-			case "AWS_BUCKET":
-				opts["AwsBucket"] = kv[1]
-			}
-		case (strings.HasPrefix(stmt, "GOOGLE_")) && strings.Contains(stmt, "="):
-			kv := strings.SplitN(stmt, "=", 2)
-			switch kv[0] {
-			case "GOOGLE_BUCKET":
-				opts["GoogleBucket"] = kv[1]
-			}
-		}
-	}
-	return opts
-}
-
 // Init returns a Store struct and error based on the provided
 // type and options.
 func Init(storeType int, options map[string]interface{}) (*Store, error) {
@@ -132,10 +87,6 @@ func Init(storeType int, options map[string]interface{}) (*Store, error) {
 	switch storeType {
 	case FS:
 		return fsConfigure(store)
-	case S3:
-		return s3Configure(store)
-	case GS:
-		return gsConfigure(store)
 	default:
 		return store, fmt.Errorf("storeType not supported")
 	}
@@ -147,10 +98,6 @@ func Init(storeType int, options map[string]interface{}) (*Store, error) {
 func StorageType(p string) int {
 	s := strings.ToLower(p)
 	switch {
-	case strings.HasPrefix(s, "s3://"):
-		return S3
-	case strings.HasPrefix(s, "gs://"):
-		return GS
 	case strings.Contains(s, "://"):
 		return UNSUPPORTED
 	}
@@ -163,34 +110,10 @@ func StorageType(p string) int {
 //
 // Returns a new Store and error
 func GetDefaultStore() (*Store, error) {
-	opts := EnvToOptions(os.Environ())
+	//NOTE: opts is a place holder to pass future options. Like
+	// things retrieved from the environment.
+	opts := map[string]interface{}{}
 	sType := FS
-	//FIXME: Shouldn't we be calling individual typed default functions per sType? (e.g. in fs.go, s3.go, gs.go)
-	if _, ok := opts["AwsBucket"]; ok == true {
-		sType = S3
-	}
-	switch sType {
-	case S3:
-		if s := os.Getenv("AWS_BUCKET"); s != "" {
-			opts["AwsBucket"] = s
-		}
-		if s := os.Getenv("AWS_SDK_LOAD_CONFIG"); s == "1" || strings.ToLower(s) == "true" {
-			opts["AwsSDKLoadConfig"] = true
-			opts["AwsSharedConfigEnabled"] = true
-			if t := os.Getenv("AWS_PROFILE"); t != "" {
-				opts["AwsProfile"] = t
-			} else {
-				opts["AwsProfile"] = "default"
-			}
-		}
-	case GS:
-		if s := os.Getenv("GOOGLE_PROJECT_ID"); s != "" {
-			opts["GoogleProjectID"] = s
-		}
-		if s := os.Getenv("GOOGLE_BUCKECT"); s != "" {
-			opts["GoogleBucket"] = s
-		}
-	}
 	store, err := Init(sType, opts)
 	return store, err
 }
@@ -203,21 +126,9 @@ func GetDefaultStore() (*Store, error) {
 func GetStore(name string) (*Store, error) {
 	// Get store type
 	sType := StorageType(name)
-	opts := EnvToOptions(os.Environ())
 
+	opts := make(map[string]interface{})
 	// Init the store based on storage type detected.
-	switch sType {
-	case S3:
-		// NOTE: Attempting to overwrite the lack of an environment variable AWS_SDK_LOAD_CONFIG=1
-		if os.Getenv("AWS_SDK_LOAD_CONFIG") == "" {
-			os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
-		}
-		u, _ := url.Parse(name)
-		opts["AwsBucket"] = u.Host
-	case GS:
-		u, _ := url.Parse(name)
-		opts["GoogleBucket"] = u.Host
-	}
 	store, err := Init(sType, opts)
 	if err != nil {
 		return nil, err
@@ -280,22 +191,6 @@ func (store *Store) Location(workPath string) (string, error) {
 	switch store.Type {
 	case FS:
 		return workPath, nil
-	case S3:
-		if bucket, ok := store.Config["AwsBucket"]; ok == true {
-			if strings.HasPrefix(workPath, "/") {
-				workPath = strings.TrimPrefix(workPath, "/")
-			}
-			return fmt.Sprintf("s3://%s/%s", bucket.(string), workPath), nil
-		}
-		return "", fmt.Errorf("error in s3 configuration")
-	case GS:
-		if bucket, ok := store.Config["GoogleBucket"]; ok == true {
-			if strings.HasPrefix(workPath, "/") {
-				workPath = strings.TrimPrefix(workPath, "/")
-			}
-			return fmt.Sprintf("gs://%s/%s", bucket.(string), workPath), nil
-		}
-		return "", fmt.Errorf("error in GS configuration")
 	default:
 		return "", fmt.Errorf("storeType not supported")
 	}

@@ -3,7 +3,7 @@
 //
 // @author R. S. Doiel, <rsdoiel@library.caltech.edu>
 //
-// Copyright (c) 2017, Caltech
+// Copyright (c) 2020, Caltech
 // All rights not granted herein are expressly reserved by Caltech.
 //
 // Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -27,11 +27,6 @@ import (
 	"path"
 	"strings"
 	"testing"
-)
-
-var (
-	S3Bucket string
-	GSBucket string
 )
 
 func TestFS(t *testing.T) {
@@ -144,248 +139,6 @@ func TestFS(t *testing.T) {
 	}
 }
 
-func TestCloudStorage(t *testing.T) {
-	var (
-		testS3 bool
-		testGS bool
-	)
-	// Configure tests
-	storeType := UNSUPPORTED
-	if len(S3Bucket) > 0 {
-		testS3 = true
-		os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
-		os.Setenv("AWS_BUCKET", S3Bucket)
-	}
-	if GSBucket != "" {
-		testGS = true
-		os.Setenv("GOOGLE_BUCKET", GSBucket)
-	}
-
-	storeTypes := map[string]bool{
-		"S3": testS3,
-		"GS": testGS,
-	}
-	for sLabel, ok := range storeTypes {
-		options := map[string]interface{}{}
-		switch {
-		case sLabel == "S3" && ok:
-			storeType = S3
-			if s := os.Getenv("AWS_BUCKET"); s != "" {
-				options["AwsBucket"] = s
-			} else {
-				t.Errorf("S3 buckets must be defined before running test")
-				t.FailNow()
-			}
-			if s := os.Getenv("AWS_SDK_LOAD_CONFIG"); s == "1" || strings.ToLower(s) == "true" {
-				options["AwsSDKLoadConfig"] = true
-				options["AwsSharedConfigEnabled"] = true
-				if t := os.Getenv("AWS_PROFILE"); t != "" {
-					options["AwsProfile"] = t
-				} else {
-					options["AwsProfile"] = "default"
-				}
-			}
-		case sLabel == "GS" && ok:
-			storeType = GS
-			if s := os.Getenv("GOOGLE_PROJECT_ID"); s != "" {
-				options["GoogleProjectID"] = s
-			}
-			if s := os.Getenv("GOOGLE_BUCKET"); s != "" {
-				options["GoogleBucket"] = s
-			} else {
-				t.Errorf("Google Bucket not defined, must be defined before running test")
-				t.FailNow()
-			}
-			if s := os.Getenv("GOOGLE_JSON_CONFIG"); s != "" {
-				options["GoogleConfigFile"] = s
-			}
-		default:
-			fmt.Printf("Skipping tests for %s\n", sLabel)
-			continue
-		}
-
-		// Now run the tests on the configure storage type
-		store, err := Init(storeType, options)
-		if err != nil {
-			t.Errorf("%s for %s", err, sLabel)
-			t.FailNow()
-		}
-		if store == nil {
-			t.Errorf("store was nil for %s", sLabel)
-			t.FailNow()
-		}
-
-		// Create a directories if needed (s3://, gs:// have no concept of directory so these should NEVER fail)
-		err = store.Mkdir("testdata", 0775)
-		if err != nil {
-			t.Errorf("Can't create testdata directory, %s for %s", err, sLabel)
-			t.FailNow()
-		}
-		err = store.MkdirAll("testdata/subdir1/subdir2", 0775)
-		if err != nil {
-			t.Errorf("Can't create testdata/subdir1/subdir2 directory, %s for %s", err, sLabel)
-			t.FailNow()
-		}
-
-		// Clear stale helloworld.txt
-		fname := `testdata/helloworld.txt`
-		_, err = store.Stat(fname)
-		if err == nil {
-			err = store.Remove(fname)
-			if err != nil {
-				t.Errorf("could not remove stale %q, %s", fname, err)
-			}
-		}
-
-		expected := []byte(`Hello World!!!`)
-		err = store.Create(fname, bytes.NewReader(expected))
-		if err != nil {
-			t.Errorf("%s\nfor %s bucket %q", err, sLabel, store.Config["AwsBucket"])
-			t.FailNow()
-		}
-
-		// Stat for Storage Type
-		fInfo, err := store.Stat(fname)
-		if err != nil {
-			t.Errorf("Stat error for %s, %s for %s", fname, err, sLabel)
-			t.FailNow()
-		}
-		if fInfo == nil {
-			t.Errorf("Stat missing info object %s for %s", fname, sLabel)
-			t.FailNow()
-		}
-		if fInfo.Name() != path.Base(fname) {
-			t.Errorf("expected %s, got %s for %s", path.Base(fname), fInfo.Name(), sLabel)
-		}
-		if fInfo.Size() != int64(len(expected)) {
-			t.Errorf("expected %d, got %d for %s", int64(len(expected)), fInfo.Size(), sLabel)
-		}
-		if fInfo.IsDir() == true {
-			t.Errorf("expected IsDir() to return false for %+v", fInfo)
-		}
-		if store.IsDir(fname) == true {
-			t.Errorf("expected store.IsDir(%q) to return false, got true", fname)
-		}
-
-		// NOTE: Stat for "directory" in Storage Type != FS can't return a non-object so with be false
-		if store.IsDir(path.Dir(fname)) == true {
-			t.Errorf("expected store.IsDir(path.Dir(%q)) to return false, got true", fname)
-		}
-
-		dname := path.Dir(fname) + "/"
-		_, err = store.Stat(dname)
-		if err == nil {
-			t.Errorf("expected err != nil, path %q on %s", dname, sLabel)
-			t.FailNow()
-		}
-		// NOTE: this should always be false for non-FS systems.
-		if store.IsDir(dname) == true {
-			t.Errorf("expected store.IsDir(%q) to be false, %+v\n", dname, store)
-		}
-		// Make sure we can read back a directory for fname
-		dList, err := store.ReadDir(dname)
-		if err != nil {
-			t.Errorf("expected a directory listing for %q, %s", dname, err)
-			t.FailNow()
-		}
-		if len(dList) == 0 {
-			t.Errorf("expected at least one file in %q", dname)
-		}
-		/** //DEBUG
-		for _, info := range dList {
-			fmt.Fprintf(os.Stderr, "DEBUG %q dList:\n%q\n", dname, info.Name())
-		}
-		/**/
-
-		mname := path.Join(dname, "collection.json")
-		if _, err := store.Stat(mname); err == nil {
-			t.Errorf("expected store.Stat(%q) to return error, got nil", mname)
-		}
-
-		result, err := store.Read(fname)
-		if err != nil {
-			t.Errorf("%s for %s", err, sLabel)
-			t.FailNow()
-		}
-		if bytes.Compare(expected, result) != 0 {
-			t.Errorf("expected %q, got %q for %s", expected, result, sLabel)
-			t.FailNow()
-		}
-		expected = []byte(`Hello World.`)
-		err = store.Update(fname, bytes.NewReader(expected))
-		if err != nil {
-			t.Errorf("%s for %s", err, sLabel)
-			t.FailNow()
-		}
-		// Now read back the data and make sure it changed
-		result, err = store.Read(fname)
-		if err != nil {
-			t.Errorf("%s for %s", err, sLabel)
-			t.FailNow()
-		}
-		if bytes.Compare(expected, result) != 0 {
-			t.Errorf("expected %q, got %q for %s", expected, result, sLabel)
-			t.FailNow()
-		}
-
-		data := []byte("Hi There")
-		err = store.WriteFile(fname, data, 0664)
-		if err != nil {
-			t.Errorf("Error WriteFile(%q) %s for %s", fname, err, sLabel)
-			t.FailNow()
-		}
-		buf, err := store.ReadFile(fname)
-		if err != nil {
-			t.Errorf("Error ReadFile(%q) %s for %s", fname, err, sLabel)
-		}
-		if bytes.Compare(data, buf) != 0 {
-			t.Errorf("expected %q, got %q for %s", expected, result, sLabel)
-			t.FailNow()
-		}
-
-		// Write a stub file in subdir2 since s3:// and gs:// don't actually make sub-directories
-		if err := store.WriteFile("testdata/subdir1/subdir2/hello.txt", data, 0664); err != nil {
-			t.Errorf("failed to write test data, %s", err)
-		}
-
-		// Cleanup if successful so far
-		err = store.Remove(fname)
-		if err != nil {
-			t.Errorf("delete %s, %s", fname, err)
-			t.FailNow()
-		}
-		err = store.Remove("testdata/subdir1/subdir2/hello.txt")
-		if err != nil {
-			t.Errorf("Could not remove testdata/subdir1/subdir2s/hello.txt, %s", err)
-		}
-		err = store.RemoveAll("testdata")
-		if err != nil {
-			t.Errorf("Could not remove testdata and it's children, %s", err)
-		}
-		// Test Location() method
-		workPath := "src/github.com/me/mystuff"
-		loc, err := store.Location(workPath)
-		if err != nil {
-			t.Errorf("Location() failed, %s", err)
-			t.FailNow()
-		}
-		protocolPrefix := ""
-		bucketName := ""
-		switch store.Type {
-		case S3:
-			protocolPrefix = "s3://"
-			bucketName = S3Bucket
-		case GS:
-			protocolPrefix = "gs://"
-			bucketName = GSBucket
-		}
-		expectedPath := fmt.Sprintf("%s%s/%s", protocolPrefix, bucketName, workPath)
-		if expectedPath == loc {
-			t.Errorf("expected %q, got %q", expectedPath, loc)
-		}
-	}
-}
-
 func TestGetDefaultStore(t *testing.T) {
 	// Clear the environment for test.
 	opts := map[string]string{}
@@ -404,31 +157,6 @@ func TestGetDefaultStore(t *testing.T) {
 	if store.Type == UNSUPPORTED {
 		t.Errorf("Expected FS type, got UNSUPPORTED")
 		t.FailNow()
-	}
-	if store.Type == S3 {
-		t.Errorf("Expected FS type, got S3")
-		t.FailNow()
-	}
-	// See if we have S3 defined
-	if len(opts) > 0 {
-		for k, v := range opts {
-			os.Setenv(k, v)
-		}
-	}
-	if S3Bucket != "" && os.Getenv("AWS_BUCKET") != "" {
-		store, err = GetDefaultStore()
-		if err != nil {
-			t.Error(err)
-			t.FailNow()
-		}
-		if store.Type == UNSUPPORTED {
-			t.Errorf("Expected S3 type, got UNSUPPORTED")
-			t.FailNow()
-		}
-		if store.Type == FS {
-			t.Errorf("Expected S3 type, got FS")
-			t.FailNow()
-		}
 	}
 }
 
@@ -502,8 +230,8 @@ func TestStorageType(t *testing.T) {
 		"/my/stuff":              FS,
 		"stuff":                  FS,
 		"foo.txt":                FS,
-		"s3://example.edu/stuff": S3,
-		"gs://example.edu/stuff": GS,
+		"s3://example.edu/stuff": UNSUPPORTED,
+		"gs://example.edu/stuff": UNSUPPORTED,
 		"eworiwer://example.io/": UNSUPPORTED,
 		"https://example.io":     UNSUPPORTED,
 		"http://erwerew":         UNSUPPORTED,
@@ -512,12 +240,6 @@ func TestStorageType(t *testing.T) {
 	for p, expected := range m {
 		if r := StorageType(p); r != expected {
 			switch expected {
-			case FS:
-				t.Errorf("expected FS (%d), got %d", expected, r)
-			case S3:
-				t.Errorf("expected S3 (%d), got %d", expected, r)
-			case GS:
-				t.Errorf("expected GS (%d), got %d", expected, r)
 			case UNSUPPORTED:
 				t.Errorf("expected UNSUPPORTED (%d), got %d", expected, r)
 			default:
@@ -575,23 +297,9 @@ func TestLocation(t *testing.T) {
 	if workPath != loc {
 		t.Errorf("expected %q, got %q", workPath, loc)
 	}
-
-	/*
-		loc, err := store.Location(workPath)
-		if err != nil {
-			t.Errorf("Location() failed, %s", err)
-			t.FailNow()
-		}
-		expected = fmt.Sprintf("gs://%s/%s", bucketName, workPath)
-		if expected == loc {
-			t.Errorf("expected %q, got %q", workPath, loc)
-		}
-	*/
 }
 
 func TestMain(m *testing.M) {
-	flag.StringVar(&S3Bucket, "s3", "", "Run S3 tests with bucketname")
-	flag.StringVar(&GSBucket, "gs", "", "Run GS tests with bucketname")
 	flag.Parse()
 	os.Exit(m.Run())
 }
